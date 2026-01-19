@@ -30,6 +30,14 @@ st.markdown("""
         color: #ffffff !important;
     }
 
+    /* --- CORREÇÃO DE VISIBILIDADE: CAIXAS DE CÓDIGO (st.code) --- */
+    /* Força o fundo das caixas de código a ser escuro e o texto neon */
+    .stCode pre, .stCode code {
+        background-color: #111 !important;
+        color: #D2FF00 !important; /* Verde Neon */
+        border: 1px solid #444 !important;
+    }
+
     /* --- TEXTOS/LABELS DOS INPUTS (BRANCO) --- */
     .stTextInput label, .stSelectbox label, .stNumberInput label {
         color: #ffffff !important;
@@ -219,7 +227,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    with st.expander("💡 Dicas de Busca"):
+    with st.expander("💡 Dicas de Busca", expanded=True):
         st.caption("Workana/99:")
         st.code("sistema python")
         st.code("integrar api")
@@ -313,8 +321,7 @@ if btn and termo:
 
             bar_text.empty() # Limpa o texto de carregamento
 
-            # RENDERIZAÇÃO DOS CARDS (Ordenados por Score se quiser, mas aqui segue a ordem de retorno)
-            # Dica: Ordenar por Score decrescente fica mais TOP
+            # RENDERIZAÇÃO DOS CARDS (Ordenados por Score)
             processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
 
             for p in processed_results:
