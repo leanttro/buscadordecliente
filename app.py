@@ -20,8 +20,13 @@ st.markdown("""
         background-color: #2e2e2e !important;
     }
     
-    /* Forçar textos da Sidebar para Branco */
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] p {
+    /* Forçar TODOS os textos da Sidebar para Branco */
+    section[data-testid="stSidebar"] h1, 
+    section[data-testid="stSidebar"] h2, 
+    section[data-testid="stSidebar"] h3, 
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] label {
         color: #ffffff !important;
     }
 
@@ -36,11 +41,12 @@ st.markdown("""
         background-color: #1a1a1a;
         border-left: 4px solid #D2FF00;
         padding: 15px;
-        color: #ffffff;
-        font-size: 13px;
+        color: #ffffff !important; /* Força branco */
+        font-size: 14px;
         margin-bottom: 20px;
         border-radius: 4px;
-        border: 1px solid #333;
+        border: 1px solid #444;
+        line-height: 1.5;
     }
 
     /* Botão Principal Neon */
@@ -147,20 +153,21 @@ def analyze_lead_groq(title, snippet, link, groq_key):
     system_prompt = f"""
     ATUE COMO: Head de Vendas da 'Leanttro Digital'.
     
-    CONTEXTO: O usuário buscou por POSTAGENS no LinkedIn/Google.
+    CONTEXTO: O usuário busca oportunidades de FREELANCE, SERVIÇOS DE DADOS ou VAGAS DE EMPREGO em TI.
+    O perfil do usuário é: Desenvolvedor Full Stack (Python/Flask), Engenheiro de Dados (ETL/Pandas/GCP), Power BI e Automação (N8N).
     
     TAREFAS:
-    1. Tente identificar o NOME DA PESSOA que fez o post (Geralmente está no título antes de "no LinkedIn" ou "on LinkedIn").
-    2. Analise se é uma oportunidade de venda ou vaga de emprego.
-    3. Defina um SCORE (0-100) de quão quente é esse lead para oferecer serviços de TI/Dev.
+    1. Tente identificar o NOME DA PESSOA que fez o post.
+    2. Analise se é uma oportunidade de venda (freela) ou vaga de emprego (CLT/PJ).
+    3. Defina um SCORE (0-100) baseado na relevância para o perfil acima.
     
     SAÍDA JSON OBRIGATÓRIA:
     {{
         "autor": "Nome da Pessoa (ou Empresa)",
         "score": (0-100),
-        "resumo_post": "O que a pessoa está procurando? (max 10 palavras)",
-        "produto_recomendado": "Qual serviço Leanttro se encaixa?",
-        "argumento_venda": "Abordagem para chamar a atenção dessa pessoa."
+        "resumo_post": "O que estão buscando? (max 10 palavras)",
+        "produto_recomendado": "Serviço Leanttro ou Aplicação para Vaga",
+        "argumento_venda": "Dica rápida de abordagem para este lead."
     }}
     """
     
@@ -176,7 +183,7 @@ def analyze_lead_groq(title, snippet, link, groq_key):
         )
         return json.loads(completion.choices[0].message.content)
     except Exception as e:
-        return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro AI", "argumento_venda": str(e)}
+        return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro IA", "argumento_venda": str(e)}
 
 # --- INTERFACE ---
 
@@ -195,40 +202,40 @@ with st.sidebar:
     # Título Modo Postagem (Branco via CSS)
     st.markdown("### 🎯 Modo Postagem")
     
-    # Caixa customizada para texto branco
+    # Caixa customizada para texto branco e legível
     st.markdown("""
     <div class="custom-info-box">
         A opção 'LinkedIn (Postagens)' busca dentro do feed.
-        Use termos como 'Contratando', 'Preciso de dev', 'Indicação'.
+        Use termos para achar quem está precisando dos seus serviços ou contratando.
     </div>
     """, unsafe_allow_html=True)
     
-    # --- SUGESTÕES DE BUSCA (LEANTTRO) ---
+    # --- SUGESTÕES DE BUSCA (ATUALIZADO PARA SEU PERFIL) ---
     st.markdown("### 💡 Sugestões de Busca")
     
-    with st.expander("💻 Dev & Software (SaaS)"):
+    with st.expander("🐍 Python & Desenvolvimento"):
         st.code("preciso de dev python")
-        st.code("busco programador fullstack")
-        st.code("criar mvp startup")
-        st.code("desenvolvedor para projeto")
+        st.code("busco programador flask")
+        st.code("automação com n8n")
+        st.code("freelance backend python")
 
-    with st.expander("🚀 Landing Pages & Sites"):
-        st.code("preciso criar site")
-        st.code("indicação web designer")
-        st.code("site para casamento")
-        st.code("página de vendas alta conversão")
+    with st.expander("📊 Dados & Power BI"):
+        st.code("preciso de dashboard power bi")
+        st.code("analista de dados freelance")
+        st.code("consultoria google cloud bigquery")
+        st.code("tratamento de dados pandas")
 
-    with st.expander("🛍️ E-commerce"):
-        st.code("criar loja virtual")
-        st.code("erro woocommerce")
-        st.code("integração meio de pagamento")
-        st.code("migrar para shopify")
-
-    with st.expander("🤖 Automação & IA"):
-        st.code("chatbot whatsapp empresa")
-        st.code("automação de atendimento")
-        st.code("implementar ia negócio")
-        st.code("sistema de agendamento automático")
+    with st.expander("💻 Vagas & Oportunidades"):
+        st.code("vaga desenvolvedor fullstack")
+        st.code("contratando engenheiro de dados")
+        st.code("oportunidade dev junior python")
+        st.code("vaga power bi remoto")
+        
+    with st.expander("🚀 Landing Pages & Web"):
+        st.code("preciso de site urgente")
+        st.code("criar landing page alta conversão")
+        st.code("ajuda html css site")
+        st.code("busco web designer freela")
 
 st.markdown("<h2 style='color:white'>O QUE VAMOS <span style='color:#D2FF00'>CAÇAR</span> HOJE?</h2>", unsafe_allow_html=True)
 
@@ -243,7 +250,7 @@ with c1:
         "Instagram (Perfis)"
     ])
 with c2:
-    termo = st.text_input("Termo de Busca:", placeholder="Ex: contratando dev python, preciso de site...")
+    termo = st.text_input("Termo de Busca:", placeholder="Ex: contratando dev python, preciso de dashboard...")
 with c3:
     tempo = st.selectbox("Período (Recência):", [
         "Últimas 24 Horas (qdr:d)",
