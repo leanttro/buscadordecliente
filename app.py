@@ -378,7 +378,7 @@ with tab1:
                 query_final = f'(site:workana.com OR site:99freelas.com.br) "{termo}"'
             elif origem == "Instagram/Negócios (Estratégia Maps)":
                 # Versão segura para a aba 1 também
-                query_final = f'site:instagram.com "{termo}" (gmail.com OR hotmail.com OR contato)'
+                query_final = f'site:instagram.com "{termo}"'
 
             st.caption(f"🔎 Buscando: `{query_final}` | Fonte: `{origem}`")
 
@@ -486,7 +486,7 @@ with tab1:
 
 
 # ==============================================================================
-# ABA 2: MINERADOR DE LEADS (CORRIGIDO PARA EVITAR ERRO 400 - QUERY NOT ALLOWED)
+# ABA 2: MINERADOR DE LEADS (CORRIGIDO PARA EVITAR ERRO 400 - LOOP SEGURO)
 # ==============================================================================
 with tab2:
     st.markdown("<h2 style='color:white'>MINERADOR DE <span style='color:#D2FF00'>LEADS B2B</span></h2>", unsafe_allow_html=True)
@@ -516,53 +516,55 @@ with tab2:
             leads_encontrados = []
             status_box = st.status("⛏️ Minerando Google (Via Serper API)...", expanded=True)
             
-            # Termos de variação para melhorar a busca
+            # 1. Definição dos Termos
             termos_busca = [termo_final]
             if "Buffet" in termo_final: termos_busca.append("Espaço para festas")
             if "Assessoria" in termo_final: termos_busca.append("Cerimonialista")
             
             total_varredura = 0
             
-            # Executa a busca
+            # 2. Executa a busca em LOOP (Para evitar Erro 400 da query complexa)
             for t in termos_busca:
-                # --- FIX CRÍTICO: QUERY 'SAFE' PARA NÃO DAR ERRO 400 ---
-                # Removemos o @ explícito e usamos "gmail.com" como texto
-                query_mine = f'site:instagram.com "{t}" "{cidade_alvo}" (gmail.com OR hotmail.com OR contato)'
-                
-                status_box.write(f"🔎 Varrendo: {t} em {cidade_alvo}...")
-                
-                # USA A FUNÇÃO SERPER EXISTENTE
-                results = search_google_serper(query_mine, period="", num_results=50) # Pede 50 resultados de uma vez
-                
-                if not results:
-                    status_box.warning(f"Sem resultados para {t} (ou erro na API).")
-                    continue
+                # LISTA DE QUERIES SEGURAS (Evita OR e parenteses que a API bloqueia)
+                safe_queries = [
+                    f'site:instagram.com "{t}" "{cidade_alvo}" email',
+                    f'site:instagram.com "{t}" "{cidade_alvo}" contato',
+                    f'site:instagram.com "{t}" "{cidade_alvo}" gmail.com'
+                ]
 
-                for res in results:
-                    # Extrai email da descrição ou titulo
-                    snippet_text = res.get('snippet', '')
-                    title_text = res.get('title', '')
+                for query_mine in safe_queries:
+                    status_box.write(f"🔎 Varrendo: {query_mine}...")
                     
-                    email = extrair_email(snippet_text)
-                    if not email: email = extrair_email(title_text)
+                    # USA A FUNÇÃO SERPER EXISTENTE
+                    results = search_google_serper(query_mine, period="", num_results=20) 
                     
-                    if email:
-                        # Evita duplicatas na lista atual
-                        if not any(l['email'] == email for l in leads_encontrados):
-                            nome = limpar_nome_insta(title_text)
-                            leads_encontrados.append({
-                                "nome": nome,
-                                "email": email,
-                                "empresa": f"{t} - {cidade_alvo}",
-                                "categoria": "Buffet/Assessoria" if "Buffet" in t or "Assessoria" in t else "Outros",
-                                "origem": "Instagram Miner",
-                                "url": res.get('link')
-                            })
-                            total_varredura += 1
-                            
-                status_box.write(f"✅ Leads coletados neste lote: {total_varredura}")
-                # Pequeno delay apenas por segurança
-                time.sleep(0.5)
+                    if not results:
+                        continue
+
+                    for res in results:
+                        # Extrai email da descrição ou titulo
+                        snippet_text = res.get('snippet', '')
+                        title_text = res.get('title', '')
+                        
+                        email = extrair_email(snippet_text)
+                        if not email: email = extrair_email(title_text)
+                        
+                        if email:
+                            # Evita duplicatas na lista atual
+                            if not any(l['email'] == email for l in leads_encontrados):
+                                nome = limpar_nome_insta(title_text)
+                                leads_encontrados.append({
+                                    "nome": nome,
+                                    "email": email,
+                                    "empresa": f"{t} - {cidade_alvo}",
+                                    "categoria": "Buffet/Assessoria" if "Buffet" in t or "Assessoria" in t else "Outros",
+                                    "origem": "Instagram Miner",
+                                    "url": res.get('link')
+                                })
+                                total_varredura += 1
+                                
+                    # Pequeno delay para respeitar a API
+                    time.sleep(0.3)
             
             status_box.update(label=f"Mineração Concluída! {len(leads_encontrados)} leads novos.", state="complete")
             
