@@ -44,8 +44,8 @@ st.markdown("""
     section[data-testid="stSidebar"] h1, 
     section[data-testid="stSidebar"] h2, 
     section[data-testid="stSidebar"] h3, 
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span, 
+    section[data-testid="stSidebar"] p, 
     section[data-testid="stSidebar"] label {
         color: #ffffff !important;
     }
@@ -217,13 +217,15 @@ def search_google_serper(query, period, num_results=10):
 
     try:
         response = requests.request("POST", url, headers=headers, data=payload)
-        if response.status_code == 200:
-            return response.json().get("organic", [])
-        else:
-            st.error(f"Erro Serper: {response.text}")
+        
+        # DEBUG: Se der erro, printa no terminal/console do streamlit
+        if response.status_code != 200:
+            print(f"ERRO SERPER: {response.status_code} - {response.text}")
             return []
+            
+        return response.json().get("organic", [])
     except Exception as e:
-        st.error(f"Erro de conexão: {e}")
+        print(f"ERRO CONEXÃO SERPER: {e}")
         return []
 
 def analyze_lead_groq(title, snippet, link, groq_key):
@@ -375,7 +377,8 @@ with tab1:
             elif origem == "Sites de Freelance (Workana/99)":
                 query_final = f'(site:workana.com OR site:99freelas.com.br) "{termo}"'
             elif origem == "Instagram/Negócios (Estratégia Maps)":
-                query_final = f'site:instagram.com "{termo}" "gmail.com"'
+                # Versão segura para a aba 1 também
+                query_final = f'site:instagram.com "{termo}" (gmail.com OR hotmail.com OR contato)'
 
             st.caption(f"🔎 Buscando: `{query_final}` | Fonte: `{origem}`")
 
@@ -426,7 +429,7 @@ with tab1:
                 # ORDENAÇÃO
                 processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
                 
-                # --- BOTÃO DE DOWNLOAD EXCEL (NOVO) ---
+                # --- BOTÃO DE DOWNLOAD EXCEL ---
                 if data_export:
                     df_radar = pd.DataFrame(data_export)
                     st.download_button(
@@ -483,7 +486,7 @@ with tab1:
 
 
 # ==============================================================================
-# ABA 2: MINERADOR DE LEADS (CORRIGIDO: AGORA USA SERPER API E NÃO O GOOGLESEARCH)
+# ABA 2: MINERADOR DE LEADS (CORRIGIDO PARA EVITAR ERRO 400 - QUERY NOT ALLOWED)
 # ==============================================================================
 with tab2:
     st.markdown("<h2 style='color:white'>MINERADOR DE <span style='color:#D2FF00'>LEADS B2B</span></h2>", unsafe_allow_html=True)
@@ -522,15 +525,17 @@ with tab2:
             
             # Executa a busca
             for t in termos_busca:
-                # Query Dorking Otimizada
-                query_mine = f'site:instagram.com "{t}" "{cidade_alvo}" "@gmail.com" OR "@hotmail.com"'
+                # --- FIX CRÍTICO: QUERY 'SAFE' PARA NÃO DAR ERRO 400 ---
+                # Removemos o @ explícito e usamos "gmail.com" como texto
+                query_mine = f'site:instagram.com "{t}" "{cidade_alvo}" (gmail.com OR hotmail.com OR contato)'
+                
                 status_box.write(f"🔎 Varrendo: {t} em {cidade_alvo}...")
                 
-                # USA A FUNÇÃO SERPER EXISTENTE (BLINDADA CONTRA BLOQUEIO 429)
+                # USA A FUNÇÃO SERPER EXISTENTE
                 results = search_google_serper(query_mine, period="", num_results=50) # Pede 50 resultados de uma vez
                 
                 if not results:
-                    status_box.warning(f"Sem resultados para {t}")
+                    status_box.warning(f"Sem resultados para {t} (ou erro na API).")
                     continue
 
                 for res in results:
@@ -556,7 +561,7 @@ with tab2:
                             total_varredura += 1
                             
                 status_box.write(f"✅ Leads coletados neste lote: {total_varredura}")
-                # Pequeno delay apenas por segurança, mas Serper aguenta bem
+                # Pequeno delay apenas por segurança
                 time.sleep(0.5)
             
             status_box.update(label=f"Mineração Concluída! {len(leads_encontrados)} leads novos.", state="complete")
