@@ -10,13 +10,6 @@ import random
 from io import BytesIO
 from groq import Groq
 
-# Tenta importar DuckDuckGo para o "Modo Grátis/Backup"
-try:
-    from duckduckgo_search import DDGS
-    HAS_DDGS = True
-except ImportError:
-    HAS_DDGS = False
-
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LEANTTRO | Buscador de Oportunidades", layout="wide", page_icon="🚀")
 
@@ -205,27 +198,6 @@ def limpar_nome_insta(titulo):
     if "•" in titulo: return titulo.split("•")[0].strip()
     return titulo[:40]
 
-def search_duckduckgo_safe(query, num_results=20):
-    """Fallback usando DuckDuckGo (Não precisa de API Key)"""
-    results = []
-    if not HAS_DDGS:
-        return []
-    try:
-        with DDGS() as ddgs:
-            # max_results controla quantos resultados retornam
-            ddg_gen = ddgs.text(query, region='br-pt', safesearch='off', max_results=num_results)
-            if ddg_gen:
-                for r in ddg_gen:
-                    results.append({
-                        "title": r.get('title'),
-                        "link": r.get('href'),
-                        "snippet": r.get('body'),
-                        "date": "Recente"
-                    })
-    except Exception as e:
-        print(f"Erro DDG: {e}")
-    return results
-
 def search_google_serper(query, period, num_results=10):
     url = "https://google.serper.dev/search"
     payload_dict = {
@@ -249,12 +221,12 @@ def search_google_serper(query, period, num_results=10):
         # DEBUG: Se der erro, printa no terminal/console do streamlit
         if response.status_code != 200:
             print(f"ERRO SERPER: {response.status_code} - {response.text}")
-            return {"error": True, "status": response.status_code, "msg": response.text}
+            return []
             
         return response.json().get("organic", [])
     except Exception as e:
         print(f"ERRO CONEXÃO SERPER: {e}")
-        return {"error": True, "msg": str(e)}
+        return []
 
 def analyze_lead_groq(title, snippet, link, groq_key):
     """Analisa o post e tenta extrair o autor e contexto"""
@@ -307,9 +279,6 @@ def analyze_lead_groq(title, snippet, link, groq_key):
 
 def process_single_item(item):
     """Função wrapper para rodar em paralelo"""
-    # Verifica se o item é erro antes de processar
-    if isinstance(item, dict) and item.get('error'): return None
-
     titulo = item.get('title', '')
     link = item.get('link', '')
     snippet = item.get('snippet', '')
@@ -338,12 +307,7 @@ with st.sidebar:
     else: st.error("🔴 Falta GROQ KEY")
     
     if SERPER_API_KEY: st.success("🟢 Google Search Ativo")
-    else: st.warning("⚠️ Google Serper: Off (Use DuckDuckGo)")
-    
-    if HAS_DDGS: st.success("🟢 DuckDuckGo: Ativo")
-    else: st.error("🔴 DuckDuckGo: Off")
-    if not HAS_DDGS:
-        st.caption("Instale `duckduckgo-search` no requirements.txt para ter backup.")
+    else: st.error("🔴 Falta SERPER KEY")
 
     st.divider()
     
@@ -357,7 +321,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # SISTEMA DE ABAS (TABS) PARA ORGANIZAR
-tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR DE LEADS (B2B)"])
+tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR DE LEADS (SERPER API)"])
 
 # ==============================================================================
 # ABA 1: O SEU BUSCADOR ORIGINAL (IA + SERPER)
@@ -414,17 +378,14 @@ with tab1:
                 query_final = f'(site:workana.com OR site:99freelas.com.br) "{termo}"'
             elif origem == "Instagram/Negócios (Estratégia Maps)":
                 # Versão segura para a aba 1 também
-                query_final = f'site:instagram.com "{termo}" (gmail.com OR hotmail.com OR contato)'
+                query_final = f'site:instagram.com "{termo}"'
 
             st.caption(f"🔎 Buscando: `{query_final}` | Fonte: `{origem}`")
 
             # BUSCA + PROCESSAMENTO PARALELO
             resultados = search_google_serper(query_final, periodo_api, qtd)
             
-            # Tratamento de erro da API na Aba 1 também
-            if isinstance(resultados, dict) and results.get('error'):
-                st.error(f"Erro na API Serper: {resultados.get('msg')}")
-            elif not resultados:
+            if not resultados:
                 st.warning("Nenhum sinal encontrado. Tente termos mais amplos.")
             else:
                 bar_text = st.empty()
@@ -443,20 +404,19 @@ with tab1:
                     for future in concurrent.futures.as_completed(future_to_item):
                         try:
                             data = future.result()
-                            if data: # Checa se não voltou None
-                                processed_results.append(data)
-                                
-                                # Prepara dados para Excel
-                                analise_data = data['analise']
-                                data_export.append({
-                                    "Titulo": data['titulo'],
-                                    "Link": data['link'],
-                                    "Score": analise_data.get('score'),
-                                    "Autor": analise_data.get('autor'),
-                                    "Resumo": analise_data.get('resumo_post'),
-                                    "Produto": analise_data.get('produto_recomendado'),
-                                    "Argumento": analise_data.get('argumento_venda')
-                                })
+                            processed_results.append(data)
+                            
+                            # Prepara dados para Excel
+                            analise_data = data['analise']
+                            data_export.append({
+                                "Titulo": data['titulo'],
+                                "Link": data['link'],
+                                "Score": analise_data.get('score'),
+                                "Autor": analise_data.get('autor'),
+                                "Resumo": analise_data.get('resumo_post'),
+                                "Produto": analise_data.get('produto_recomendado'),
+                                "Argumento": analise_data.get('argumento_venda')
+                            })
                             
                         except Exception as exc:
                             st.error(f"Erro no processamento: {exc}")
@@ -526,13 +486,13 @@ with tab1:
 
 
 # ==============================================================================
-# ABA 2: MINERADOR DE LEADS (ATUALIZADO COM BACKUP DUCKDUCKGO)
+# ABA 2: MINERADOR DE LEADS (CORRIGIDO PARA EVITAR ERRO 400 - LOOP SEGURO)
 # ==============================================================================
 with tab2:
     st.markdown("<h2 style='color:white'>MINERADOR DE <span style='color:#D2FF00'>LEADS B2B</span></h2>", unsafe_allow_html=True)
     st.caption("Focado em encontrar e-mails públicos de empresas no Instagram. Ideal para Buffets e Assessores para a estratégia de parceria.")
 
-    col_m1, col_m2, col_m3, col_m4 = st.columns([2, 2, 2, 1])
+    col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1: 
         cidade_alvo = st.text_input("Cidade Alvo:", value="São Paulo")
     with col_m2: 
@@ -541,80 +501,51 @@ with tab2:
         termo_custom = ""
         if nicho_alvo == "Outro":
             termo_custom = st.text_input("Digite o Nicho:", placeholder="Ex: Clínica Estética")
-    with col_m4:
-        # ESCOLHA DO MOTOR DE BUSCA
-        motor_busca = st.selectbox("Motor:", ["Google (API)", "DuckDuckGo (Free)"])
     
     termo_final = termo_custom if nicho_alvo == "Outro" else nicho_alvo
     
     st.write("##")
-    btn_mine = st.button("⛏️ INICIAR MINERAÇÃO", key="btn_mine")
+    btn_mine = st.button("⛏️ INICIAR MINERAÇÃO (VIA API)", key="btn_mine")
     
     if btn_mine:
         if not termo_final:
             st.error("Defina um nicho para buscar.")
+        elif not SERPER_API_KEY:
+            st.error("Configure sua SERPER API KEY na aba lateral.")
         else:
             leads_encontrados = []
-            status_box = st.status(f"⛏️ Minerando com {motor_busca}...", expanded=True)
+            status_box = st.status("⛏️ Minerando Google (Via Serper API)...", expanded=True)
             
-            # Termos de variação para melhorar a busca
+            # 1. Definição dos Termos
             termos_busca = [termo_final]
             if "Buffet" in termo_final: termos_busca.append("Espaço para festas")
             if "Assessoria" in termo_final: termos_busca.append("Cerimonialista")
             
             total_varredura = 0
             
-            # Executa a busca
+            # 2. Executa a busca em LOOP (Para evitar Erro 400 da query complexa)
             for t in termos_busca:
-                # Queries para tentar achar o e-mail
-                # 1. Busca específica no Instagram
-                query_insta = f'site:instagram.com "{t}" "{cidade_alvo}" (gmail.com OR hotmail.com OR contato)'
-                # 2. Busca genérica se a primeira falhar (Backup)
-                query_generic = f'"{t}" "{cidade_alvo}" "@gmail.com" OR "@hotmail.com"'
-                
-                queries_to_run = [query_insta]
-                # Se for DuckDuckGo, roda também a genérica pois ele aguenta mais
-                if motor_busca == "DuckDuckGo (Free)":
-                    queries_to_run.append(query_generic)
+                # LISTA DE QUERIES SEGURAS (Evita OR e parenteses que a API bloqueia)
+                safe_queries = [
+                    f'site:instagram.com "{t}" "{cidade_alvo}" email',
+                    f'site:instagram.com "{t}" "{cidade_alvo}" contato',
+                    f'site:instagram.com "{t}" "{cidade_alvo}" gmail.com'
+                ]
 
-                for q in queries_to_run:
-                    status_box.write(f"🔎 Buscando: {q}...")
+                for query_mine in safe_queries:
+                    status_box.write(f"🔎 Varrendo: {query_mine}...")
                     
-                    results = []
+                    # USA A FUNÇÃO SERPER EXISTENTE
+                    results = search_google_serper(query_mine, period="", num_results=20) 
                     
-                    # LÓGICA DE SELEÇÃO DO MOTOR
-                    if motor_busca == "Google (API)":
-                        if not SERPER_API_KEY:
-                            st.error("ERRO: Configure SERPER_API_KEY no Dokploy para usar o Google.")
-                            break
-                        
-                        api_res = search_google_serper(q, period="", num_results=40)
-                        
-                        if isinstance(api_res, dict) and api_res.get('error'):
-                            status_box.error(f"Erro API Serper: {api_res.get('msg')}")
-                            break # Para se der erro de API (ex: cota)
-                        
-                        results = api_res
-
-                    elif motor_busca == "DuckDuckGo (Free)":
-                        if not HAS_DDGS:
-                            st.error("ERRO: Biblioteca 'duckduckgo-search' não instalada.")
-                            break
-                        # DuckDuckGo é mais lento, precisa de delay
-                        results = search_duckduckgo_safe(q, num_results=30)
-                        time.sleep(2) 
-
                     if not results:
-                        status_box.warning(f"Sem resultados nesta query.")
                         continue
 
-                    # PROCESSAMENTO DOS RESULTADOS
                     for res in results:
+                        # Extrai email da descrição ou titulo
                         snippet_text = res.get('snippet', '')
                         title_text = res.get('title', '')
-                        link_url = res.get('link', '')
                         
-                        # Tenta extrair email
                         email = extrair_email(snippet_text)
                         if not email: email = extrair_email(title_text)
                         
@@ -627,12 +558,13 @@ with tab2:
                                     "email": email,
                                     "empresa": f"{t} - {cidade_alvo}",
                                     "categoria": "Buffet/Assessoria" if "Buffet" in t or "Assessoria" in t else "Outros",
-                                    "origem": motor_busca,
-                                    "url": link_url
+                                    "origem": "Instagram Miner",
+                                    "url": res.get('link')
                                 })
                                 total_varredura += 1
                                 
-                status_box.write(f"✅ Leads coletados neste lote: {total_varredura}")
+                    # Pequeno delay para respeitar a API
+                    time.sleep(0.3)
             
             status_box.update(label=f"Mineração Concluída! {len(leads_encontrados)} leads novos.", state="complete")
             
@@ -649,6 +581,6 @@ with tab2:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="dl_mine"
                 )
-                st.success("👉 Baixe o Excel e use onde quiser!")
+                st.success("👉 Baixe o Excel e importe na aba 'Modo Sniper' do seu CRM!")
             else:
-                st.warning("Nenhum e-mail público encontrado. Tente mudar o termo ou troque o motor de busca.")
+                st.warning("Nenhum e-mail público encontrado. Tente mudar a cidade ou o termo.")
