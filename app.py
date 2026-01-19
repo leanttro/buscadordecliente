@@ -14,6 +14,22 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Chakra+Petch:wght@400;700&display=swap');
     
+    /* --- FIX: REMOVER BARRA BRANCA DO TOPO --- */
+    header {
+        visibility: hidden;
+        height: 0px;
+    }
+    div[data-testid="stHeader"] {
+        visibility: hidden;
+        height: 0px;
+    }
+    /* Ajusta o padding para o conteúdo subir e ocupar o espaço vazio */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+    }
+    
+    /* --- CONFIGURAÇÃO GERAL --- */
     .stApp { background-color: #050505; color: #E5E7EB; font-family: 'Kanit', sans-serif; }
     
     /* --- BARRA LATERAL (SIDEBAR) --- */
