@@ -31,6 +31,7 @@ st.markdown("""
     /* Inputs */
     .stTextInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stNumberInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
+    .stSelectbox > div > div { background-color: #111; color: white; border: 1px solid #333; }
 
     /* Card do Lead */
     .lead-card {
@@ -72,7 +73,7 @@ SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 # --- FUNÇÕES ---
 
 def search_google_serper(query, num_results=10):
-    """Busca no Google Geral (Web) para achar empresas e sites"""
+    """Busca no Google/Serper"""
     url = "https://google.serper.dev/search"
     
     payload = json.dumps({
@@ -99,7 +100,7 @@ def search_google_serper(query, num_results=10):
         return []
 
 def analyze_lead_groq(title, snippet, link, groq_key):
-    """Analisa o lead com foco em Venda de Software e Sites"""
+    """Analisa o lead com a IA"""
     if not groq_key: 
         return {"score": 0, "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     
@@ -115,23 +116,25 @@ def analyze_lead_groq(title, snippet, link, groq_key):
 
     system_prompt = f"""
     ATUE COMO: Consultor Sênior da 'Leanttro Digital'.
-    OBJETIVO: Analisar resultados do Google para vender tecnologia.
+    OBJETIVO: Analisar resultados de busca (Google/Linkedin/Instagram) para vender tecnologia.
     
     PORTFÓLIO:
     {LEANTTRO_PORTFOLIO}
     
     REGRAS DE ANÁLISE:
+    - Se a fonte for INSTAGRAM/LINKEDIN: O cliente PROVAVELMENTE não tem site ou é fraco. 
+      -> Argumento: "Profissionalize sua marca, saia do amadorismo das redes sociais."
+    
     - Buffets/Festas -> Foco: SITE DE FESTAS (RSVP/Presentes).
-    - Varejo/Loja Física -> Foco: LOJA VIRTUAL.
+    - Varejo/Loja Física -> Foco: LOJA VIRTUAL (Venda dormindo).
     - Serviços (Adv/Med) -> Foco: SITE INSTITUCIONAL (Autoridade).
     - Empresas Operacionais -> Foco: AUTOMAÇÃO/DADOS.
-    - Se o link for 'instagram.com' ou 'facebook.com', SCORE AUMENTA (significa que não tem site próprio).
     
     SAÍDA JSON OBRIGATÓRIA:
     {{
         "score": (0-100),
         "nicho_detectado": "Ex: Advocacia Trabalhista",
-        "dor_principal": "Ex: Sem site profissional, apenas Instagram",
+        "dor_principal": "Ex: Só usa Instagram, sem site profissional",
         "produto_recomendado": "Ex: Site Institucional",
         "argumento_venda": "Pitch curto de 1 frase focado na dor."
     }}
@@ -164,35 +167,39 @@ with st.sidebar:
     else: st.error("🔴 Falta SERPER KEY")
 
     st.divider()
-    st.markdown("### 🎯 Estratégias de Busca")
-    st.caption("Use estes termos para achar quem precisa de você:")
-    
-    st.markdown("**1. Para vender Automação/N8N:**")
-    st.code('site:linkedin.com/company "logística" "manual"')
-    
-    st.markdown("**2. Para vender Sites de Festas:**")
-    st.code('"Buffet Infantil" "orçamento" SP')
-    
-    st.markdown("**3. Para vender E-commerce:**")
-    st.code('"Loja de Roupas" "enviamos para todo brasil" -site:com.br')
+    st.markdown("### 🎯 Dicas de Ouro")
+    st.info("Buscar no LinkedIn/Instagram traz empresas que muitas vezes NÃO TEM SITE. É o melhor lead!")
 
 st.markdown("<h2 style='color:white'>QUEM VAMOS <span style='color:#D2FF00'>DIGITALIZAR</span> HOJE?</h2>", unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns([6, 1, 1])
-with c1:
-    termo = st.text_input("Comando de Busca:", placeholder="Ex: Advogados Trabalhistas em São Paulo...")
-with c2:
-    qtd = st.number_input("Qtd", 1, 50, 5)
-with c3:
-    st.write("##")
-    btn = st.button("RASTREAR")
+# Layout de Busca
+c1, c2, c3 = st.columns([2, 4, 1])
 
-if btn:
+with c1:
+    origem = st.selectbox("Onde buscar?", ["Google (Web Geral)", "LinkedIn (Empresas)", "Instagram (Perfis)"])
+with c2:
+    termo = st.text_input("Nicho / Termo:", placeholder="Ex: Logística, Buffet Infantil, Dentista...")
+with c3:
+    qtd = st.number_input("Qtd", 1, 50, 5)
+
+st.write("##")
+btn = st.button("RASTREAR OPORTUNIDADES")
+
+if btn and termo:
     if not (GROQ_API_KEY and SERPER_API_KEY):
         st.error("⚠️ Configure as chaves de API no Dokploy (Environment)!")
     else:
-        with st.spinner("🕵️ Rastreando oportunidades na rede..."):
-            resultados = search_google_serper(termo, qtd)
+        # LÓGICA DE FILTRO DE REDES SOCIAIS
+        query_final = termo
+        if origem == "LinkedIn (Empresas)":
+            query_final = f'site:linkedin.com/company "{termo}"'
+        elif origem == "Instagram (Perfis)":
+            query_final = f'site:instagram.com "{termo}"'
+
+        st.caption(f"🔎 Buscando por: `{query_final}`")
+
+        with st.spinner("🕵️ Minando dados..."):
+            resultados = search_google_serper(query_final, qtd)
             
             if not resultados:
                 st.warning("Nenhum sinal encontrado. Tente termos mais amplos.")
@@ -213,34 +220,35 @@ if btn:
                     icon = "❄️"
                     if score >= 80:
                         css_class = "score-hot"
-                        icon = "🔥 HOT LEAD"
+                        icon = "🔥 HOT"
                     elif score >= 50:
                         css_class = "score-warm"
                         icon = "⚠️ MORNO"
                     
+                    # HTML SEM INDENTAÇÃO PARA CORRIGIR O ERRO DE VISUALIZAÇÃO
                     st.markdown(f"""
-                    <div class="lead-card {css_class}">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}/100</span>
-                                <span class="tag-nicho">{analise.get('nicho_detectado', 'Geral')}</span>
-                            </div>
-                            <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VISITAR LINK 🔗</a>
-                        </div>
-                        
-                        <div style="margin-top:10px;">
-                            <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
-                        </div>
-                        <div style="color:#888; font-size:12px; margin:5px 0;">{snippet[:200]}...</div>
-                        
-                        <div class="recommendation-box">
-                            <div class="rec-title">// DIAGNÓSTICO LEANTTRO:</div>
-                            <div style="color: #fff; font-weight:bold;">VENDER: {analise.get('produto_recomendado', 'N/A').upper()}</div>
-                            <div class="rec-text"><span style="color:#666">DOR:</span> {analise.get('dor_principal', '')}</div>
-                            <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+<div class="lead-card {css_class}">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}/100</span>
+            <span class="tag-nicho">{analise.get('nicho_detectado', 'Geral')}</span>
+        </div>
+        <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VISITAR {origem.split()[0].upper()} 🔗</a>
+    </div>
+    
+    <div style="margin-top:10px;">
+        <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
+    </div>
+    <div style="color:#888; font-size:12px; margin:5px 0;">{snippet[:200]}...</div>
+    
+    <div class="recommendation-box">
+        <div class="rec-title">// DIAGNÓSTICO LEANTTRO:</div>
+        <div style="color: #fff; font-weight:bold;">VENDER: {analise.get('produto_recomendado', 'N/A').upper()}</div>
+        <div class="rec-text"><span style="color:#666">DOR:</span> {analise.get('dor_principal', '')}</div>
+        <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
                     
-                    time.sleep(0.1) # Evita rate limit
+                    time.sleep(0.1) 
                     prog.progress((i+1)/len(resultados))
