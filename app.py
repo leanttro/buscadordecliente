@@ -194,9 +194,10 @@ def extrair_email(texto):
     return match.group(0) if match else None
 
 def limpar_nome_insta(titulo):
-    """Limpa o título do Instagram"""
+    """Limpa o título do Instagram/Social"""
     if "•" in titulo: return titulo.split("•")[0].strip()
-    return titulo[:40]
+    if "-" in titulo: return titulo.split("-")[0].strip()
+    return titulo[:50]
 
 def search_google_serper(query, period, num_results=10):
     url = "https://google.serper.dev/search"
@@ -321,7 +322,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # SISTEMA DE ABAS (TABS) PARA ORGANIZAR
-tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR DE LEADS (SERPER API)"])
+tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR MULTI-FONTE (B2B)"])
 
 # ==============================================================================
 # ABA 1: O SEU BUSCADOR ORIGINAL (IA + SERPER)
@@ -486,11 +487,11 @@ with tab1:
 
 
 # ==============================================================================
-# ABA 2: MINERADOR DE LEADS (CORRIGIDO PARA EVITAR ERRO 400 - LOOP SEGURO)
+# ABA 2: MINERADOR MULTI-FONTE (ATUALIZADO: LINKEDIN + FACEBOOK + WEB)
 # ==============================================================================
 with tab2:
-    st.markdown("<h2 style='color:white'>MINERADOR DE <span style='color:#D2FF00'>LEADS B2B</span></h2>", unsafe_allow_html=True)
-    st.caption("Focado em encontrar e-mails públicos de empresas no Instagram. Ideal para Buffets e Assessores para a estratégia de parceria.")
+    st.markdown("<h2 style='color:white'>MINERADOR <span style='color:#D2FF00'>MULTI-FONTE</span></h2>", unsafe_allow_html=True)
+    st.caption("Agora buscando em: Instagram, LinkedIn, Facebook e Web Geral (Sites).")
 
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1: 
@@ -505,7 +506,7 @@ with tab2:
     termo_final = termo_custom if nicho_alvo == "Outro" else nicho_alvo
     
     st.write("##")
-    btn_mine = st.button("⛏️ INICIAR MINERAÇÃO (VIA API)", key="btn_mine")
+    btn_mine = st.button("⛏️ MINERAR TUDO (AMPLIADO)", key="btn_mine")
     
     if btn_mine:
         if not termo_final:
@@ -514,7 +515,7 @@ with tab2:
             st.error("Configure sua SERPER API KEY na aba lateral.")
         else:
             leads_encontrados = []
-            status_box = st.status("⛏️ Minerando Google (Via Serper API)...", expanded=True)
+            status_box = st.status("⛏️ Preparando varredura multi-plataforma...", expanded=True)
             
             # 1. Definição dos Termos
             termos_busca = [termo_final]
@@ -523,28 +524,45 @@ with tab2:
             
             total_varredura = 0
             
-            # 2. Executa a busca em LOOP (Para evitar Erro 400 da query complexa)
+            # 2. Executa a busca em LOOP
             for t in termos_busca:
-                # LISTA DE QUERIES SEGURAS (Evita OR e parenteses que a API bloqueia)
-                safe_queries = [
+                
+                # --- NOVAS QUERIES AMPLIADAS ---
+                expanded_queries = [
+                    # INSTAGRAM (Mantido)
                     f'site:instagram.com "{t}" "{cidade_alvo}" email',
                     f'site:instagram.com "{t}" "{cidade_alvo}" contato',
-                    f'site:instagram.com "{t}" "{cidade_alvo}" gmail.com'
+                    
+                    # LINKEDIN (Empresas e Perfis)
+                    f'site:linkedin.com/company "{t}" "{cidade_alvo}" email',
+                    f'site:linkedin.com/in "{t}" "{cidade_alvo}" "@gmail.com"',
+                    
+                    # FACEBOOK (Páginas de negócio geralmente tem email na bio)
+                    f'site:facebook.com "{t}" "{cidade_alvo}" gmail.com',
+                    
+                    # WEB GERAL (Sites das empresas)
+                    f'"{t}" "{cidade_alvo}" "@gmail.com" OR "@hotmail.com" OR "contato@"'
                 ]
 
-                for query_mine in safe_queries:
-                    status_box.write(f"🔎 Varrendo: {query_mine}...")
+                for query_mine in expanded_queries:
                     
-                    # USA A FUNÇÃO SERPER EXISTENTE
+                    # Identificar a fonte visualmente para o log
+                    fonte_detectada = "WEB"
+                    if "instagram" in query_mine: fonte_detectada = "INSTA"
+                    elif "linkedin" in query_mine: fonte_detectada = "LINKEDIN"
+                    elif "facebook" in query_mine: fonte_detectada = "FACEBOOK"
+
+                    status_box.write(f"🔎 [{fonte_detectada}] Buscando: {t}...")
+                    
                     results = search_google_serper(query_mine, period="", num_results=20) 
                     
                     if not results:
                         continue
 
                     for res in results:
-                        # Extrai email da descrição ou titulo
                         snippet_text = res.get('snippet', '')
                         title_text = res.get('title', '')
+                        link_url = res.get('link', '')
                         
                         email = extrair_email(snippet_text)
                         if not email: email = extrair_email(title_text)
@@ -553,20 +571,29 @@ with tab2:
                             # Evita duplicatas na lista atual
                             if not any(l['email'] == email for l in leads_encontrados):
                                 nome = limpar_nome_insta(title_text)
+                                
+                                # Tenta limpar o nome baseado na fonte
+                                if "linkedin" in link_url:
+                                    origem_lead = "LinkedIn"
+                                elif "facebook" in link_url:
+                                    origem_lead = "Facebook"
+                                elif "instagram" in link_url:
+                                    origem_lead = "Instagram"
+                                else:
+                                    origem_lead = "Site/Web"
+
                                 leads_encontrados.append({
                                     "nome": nome,
                                     "email": email,
                                     "empresa": f"{t} - {cidade_alvo}",
-                                    "categoria": "Buffet/Assessoria" if "Buffet" in t or "Assessoria" in t else "Outros",
-                                    "origem": "Instagram Miner",
-                                    "url": res.get('link')
+                                    "origem": origem_lead,
+                                    "url": link_url
                                 })
                                 total_varredura += 1
                                 
-                    # Pequeno delay para respeitar a API
-                    time.sleep(0.3)
+                    time.sleep(0.3) # Delay anti-spam
             
-            status_box.update(label=f"Mineração Concluída! {len(leads_encontrados)} leads novos.", state="complete")
+            status_box.update(label=f"Sucesso! {len(leads_encontrados)} leads encontrados em várias fontes.", state="complete")
             
             if leads_encontrados:
                 df_mine = pd.DataFrame(leads_encontrados)
@@ -575,12 +602,12 @@ with tab2:
                 
                 # BOTÃO EXCEL
                 st.download_button(
-                    label="📥 BAIXAR LISTA DE LEADS (EXCEL)",
+                    label="📥 BAIXAR LISTA COMPLETA (EXCEL)",
                     data=to_excel(df_mine),
-                    file_name=f"leads_{cidade_alvo}_{termo_final}.xlsx",
+                    file_name=f"leads_multi_{cidade_alvo}_{termo_final}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="dl_mine"
                 )
-                st.success("👉 Baixe o Excel e importe na aba 'Modo Sniper' do seu CRM!")
+                st.success("👉 Baixe o Excel e use onde quiser!")
             else:
                 st.warning("Nenhum e-mail público encontrado. Tente mudar a cidade ou o termo.")
