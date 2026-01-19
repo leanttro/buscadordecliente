@@ -115,20 +115,20 @@ SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 # --- ESTRATÉGIA DE SUGESTÕES (BASEADA NO LEANTTRO.COM E CURRÍCULO) ---
 SUGESTOES_STRATEGICAS = {
     "Sites de Freelance (Workana/99)": [
-        "preciso programador python", # Venda Skill Técnica
-        "criar site de vendas", # Venda Produto Loja Virtual
-        "dashboard power bi", # Venda Skill Dados
-        "integrar api sistema", # Venda Skill Backend
-        "automação n8n", # Venda Skill Automação
-        "analista de dados gcp" # Venda Skill Engenharia
+        "preciso programador python", # Venda Skill Técnica (Projeto)
+        "criar site de vendas", # Venda Produto Loja Virtual (Projeto)
+        "dashboard power bi", # Venda Skill Dados (Projeto)
+        "integrar api sistema", # Venda Skill Backend (Projeto)
+        "automação n8n", # Venda Skill Automação (Projeto)
+        "analista de dados gcp" # Híbrido (Pode ser vaga ou projeto)
     ],
     "LinkedIn (Postagens/Feed)": [
         "preciso de desenvolvedor python",
-        "busco engenheiro de dados",
+        "busco freela criação de site",
         "procuro gestor de tráfego" , # (Pode vender LP para os clientes deles)
         "indicação criação de site",
         "sistema lento ajuda", # Oportunidade de Refatoração/Consultoria
-        "vaga pj desenvolvedor backend"
+        "vaga pj desenvolvedor backend" # Plano B
     ],
     "LinkedIn (Empresas)": [
         "Logística e Transportes", # Seu background na Elo Brindes
@@ -194,27 +194,28 @@ def analyze_lead_groq(title, snippet, link, groq_key):
     system_prompt = f"""
     ATUE COMO: Head de Vendas da 'Leanttro Digital'.
     
-    SEUS PRODUTOS (LEANTTRO.COM):
-    1. CRIAÇÃO DE SITES: Institucionais, Landing Pages (Foco em conversão).
-    2. E-COMMERCE: Lojas virtuais completas (Foco em Auto Peças e Varejo).
-    3. FESTAS/EVENTOS: Sites para casamento, listas de presentes, RSVP.
-    4. SOFTWARE CUSTOM: Sistemas Python, Dashboards Power BI, Engenharia de Dados (GCP/SQL).
+    SEUS PRODUTOS (LEANTTRO.COM) - PRIORIDADE 1 (VENDER PROJETO/FREELA):
+    1. CRIAÇÃO DE SITES/LPs: "Preciso de um site", "Melhorar conversão", "Landing Page".
+    2. E-COMMERCE: "Loja virtual", "Vender online", "Woocommerce/Shopify".
+    3. SISTEMAS/DADOS: "Automação", "Dashboard", "Script Python", "Raspagem de dados", "Integração API".
     
-    SEU PERFIL TÉCNICO (LEANDRO):
-    Dev Full Stack (Python/Flask), Eng. de Dados (GCP, BigQuery, ETL), Automação (N8N).
+    OBJETIVO SECUNDÁRIO - PRIORIDADE 2 (VAGA DE EMPREGO/CONTRATAÇÃO):
+    - Se o post for "Vaga CLT", "Contratação PJ fixo", "Join our team", "Estamos contratando dev".
     
     TAREFAS:
-    1. Identifique o NOME DA PESSOA ou NOME DA EMPRESA.
-    2. Analise se é LEAD DE VENDA (quer site/sistema) ou VAGA/FREELA (quer dev).
-    3. Defina um SCORE (0-100) baseado no fit com o portfólio Leanttro.
+    1. Identifique o NOME e o TIPO DE OPORTUNIDADE.
+    2. CALCULE O SCORE:
+       - PROJETO/FREELA (Escopo fechado/Agência) = SCORE ALTO (80-100). 🔥
+       - VAGA/EMPREGO (Longo prazo/Fixo) = SCORE MÉDIO (50-79). ⚠️
+       - LIXO/IRRELEVANTE = SCORE BAIXO (0-49). ❄️
     
     SAÍDA JSON OBRIGATÓRIA:
     {{
         "autor": "Nome (ou Empresa)",
         "score": (0-100),
         "resumo_post": "Resumo em 10 palavras",
-        "produto_recomendado": "Qual serviço Leanttro oferecer?",
-        "argumento_venda": "Dica curta de abordagem técnica ou comercial."
+        "produto_recomendado": "Serviço Leanttro (se projeto) ou 'Candidatura Vaga' (se emprego)",
+        "argumento_venda": "Se for PROJETO: Foque em entrega rápida/qualidade Leanttro. Se for VAGA: Destaque o perfil Sênior/Fullstack do Leandro."
     }}
     """
     
@@ -255,7 +256,6 @@ def process_single_item(item):
 
 # 1. Definição do Estado da Seleção (Para pegar as dicas corretas)
 # Precisamos definir a selectbox antes de usar na sidebar para as dicas serem reativas
-# Mas no Streamlit a ordem visual importa. Usaremos um placeholder ou lógica direta.
 
 with st.sidebar:
     st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Buscador de Oportunidades</span></h1>", unsafe_allow_html=True)
@@ -269,14 +269,12 @@ with st.sidebar:
 
     st.divider()
     
-    # Placeholder para as dicas (será preenchido após o usuário selecionar a origem na área principal,
-    # mas como Streamlit roda o script todo, vamos definir a origem logo abaixo e usar aqui)
-    
     st.markdown("### 🎯 Modo de Caça")
     st.markdown("""
     <div class="custom-info-box">
-        <b>Estratégia Leanttro:</b><br>
-        O sistema analisa se o lead precisa de <b>Sites/E-commerce</b> (Produto) ou <b>Dev Python/Dados</b> (Serviço).
+        <b>Prioridade Leanttro:</b><br>
+        1. <b>Projetos/Freelas (🔥):</b> Vender sites e serviços da agência.<br>
+        2. <b>Vagas (⚠️):</b> Emprego fixo (Plano B).
     </div>
     """, unsafe_allow_html=True)
 
