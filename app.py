@@ -3,6 +3,7 @@ import requests
 import os
 import json
 import time
+import textwrap
 from groq import Groq
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
@@ -63,6 +64,9 @@ st.markdown("""
     .rec-text { font-size: 13px; color: #ddd; margin-top: 4px; }
     
     h1, h2, h3 { font-family: 'Chakra Petch', sans-serif; font-style: italic; }
+    
+    /* Forçar links a não terem sublinhado padrão */
+    a { text-decoration: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -225,31 +229,32 @@ if btn and termo:
                         css_class = "score-warm"
                         icon = "⚠️ MORNO"
                     
-                    # --- CORREÇÃO DO ERRO VISUAL ---
-                    # Removemos a indentação extra usando .strip() e garantindo que o f-string não quebre o markdown
-                    card_html = f"""
-<div class="lead-card {css_class}">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div>
-            <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}/100</span>
-            <span class="tag-nicho">{analise.get('nicho_detectado', 'Geral')}</span>
-        </div>
-        <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VISITAR {origem.split()[0].upper()} 🔗</a>
-    </div>
-    
-    <div style="margin-top:10px;">
-        <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
-    </div>
-    <div style="color:#888; font-size:12px; margin:5px 0;">{snippet[:200]}...</div>
-    
-    <div class="recommendation-box">
-        <div class="rec-title">// DIAGNÓSTICO LEANTTRO:</div>
-        <div style="color: #fff; font-weight:bold;">VENDER: {analise.get('produto_recomendado', 'N/A').upper()}</div>
-        <div class="rec-text"><span style="color:#666">DOR:</span> {analise.get('dor_principal', '')}</div>
-        <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
-    </div>
-</div>
-"""
+                    # --- CORREÇÃO DEFINITIVA DO ERRO VISUAL ---
+                    # Usamos textwrap.dedent para garantir que o HTML não tenha espaços no início das linhas
+                    card_html = textwrap.dedent(f"""
+                        <div class="lead-card {css_class}">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}/100</span>
+                                    <span class="tag-nicho">{analise.get('nicho_detectado', 'Geral')}</span>
+                                </div>
+                                <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VISITAR {origem.split()[0].upper()} 🔗</a>
+                            </div>
+                            
+                            <div style="margin-top:10px;">
+                                <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
+                            </div>
+                            <div style="color:#888; font-size:12px; margin:5px 0;">{snippet[:200]}...</div>
+                            
+                            <div class="recommendation-box">
+                                <div class="rec-title">// DIAGNÓSTICO LEANTTRO:</div>
+                                <div style="color: #fff; font-weight:bold;">VENDER: {analise.get('produto_recomendado', 'N/A').upper()}</div>
+                                <div class="rec-text"><span style="color:#666">DOR:</span> {analise.get('dor_principal', '')}</div>
+                                <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
+                            </div>
+                        </div>
+                    """)
+                    
                     st.markdown(card_html, unsafe_allow_html=True)
                     
                     time.sleep(0.1) 
