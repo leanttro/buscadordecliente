@@ -19,6 +19,11 @@ st.markdown("""
     section[data-testid="stSidebar"] {
         background-color: #2e2e2e !important;
     }
+    
+    /* Forçar textos da Sidebar para Branco */
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] p {
+        color: #ffffff !important;
+    }
 
     /* --- TEXTOS/LABELS DOS INPUTS (BRANCO) --- */
     .stTextInput label, .stSelectbox label, .stNumberInput label {
@@ -26,6 +31,18 @@ st.markdown("""
         font-size: 14px !important;
     }
     
+    /* Caixa de Informação Customizada (Texto Branco) */
+    .custom-info-box {
+        background-color: #1a1a1a;
+        border-left: 4px solid #D2FF00;
+        padding: 15px;
+        color: #ffffff;
+        font-size: 13px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        border: 1px solid #333;
+    }
+
     /* Botão Principal Neon */
     div.stButton > button { 
         background-color: #D2FF00; color: #000; border: none; 
@@ -174,8 +191,44 @@ with st.sidebar:
     else: st.error("🔴 Falta SERPER KEY")
 
     st.divider()
+    
+    # Título Modo Postagem (Branco via CSS)
     st.markdown("### 🎯 Modo Postagem")
-    st.info("A opção 'LinkedIn (Postagens)' busca dentro do feed. Use termos como 'Contratando', 'Preciso de dev', 'Indicação'.")
+    
+    # Caixa customizada para texto branco
+    st.markdown("""
+    <div class="custom-info-box">
+        A opção 'LinkedIn (Postagens)' busca dentro do feed.
+        Use termos como 'Contratando', 'Preciso de dev', 'Indicação'.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # --- SUGESTÕES DE BUSCA (LEANTTRO) ---
+    st.markdown("### 💡 Sugestões de Busca")
+    
+    with st.expander("💻 Dev & Software (SaaS)"):
+        st.code("preciso de dev python")
+        st.code("busco programador fullstack")
+        st.code("criar mvp startup")
+        st.code("desenvolvedor para projeto")
+
+    with st.expander("🚀 Landing Pages & Sites"):
+        st.code("preciso criar site")
+        st.code("indicação web designer")
+        st.code("site para casamento")
+        st.code("página de vendas alta conversão")
+
+    with st.expander("🛍️ E-commerce"):
+        st.code("criar loja virtual")
+        st.code("erro woocommerce")
+        st.code("integração meio de pagamento")
+        st.code("migrar para shopify")
+
+    with st.expander("🤖 Automação & IA"):
+        st.code("chatbot whatsapp empresa")
+        st.code("automação de atendimento")
+        st.code("implementar ia negócio")
+        st.code("sistema de agendamento automático")
 
 st.markdown("<h2 style='color:white'>O QUE VAMOS <span style='color:#D2FF00'>CAÇAR</span> HOJE?</h2>", unsafe_allow_html=True)
 
