@@ -217,10 +217,7 @@ if btn and termo:
         if origem == "LinkedIn (Empresas)":
             query_final = f'site:linkedin.com/company "{termo}"'
         elif origem == "LinkedIn (Postagens/Feed)":
-            # Busca focada em POSTS
-            query_final = f'site:linkedin.com/postsOrFeed "{termo}"' 
-            # Dica: site:linkedin.com/posts costuma pegar posts individuais
-            # Às vezes o Google indexa melhor como site:linkedin.com/feed ou apenas a palavra chave + site:linkedin.com
+            # Busca focada em POSTS e FEED
             query_final = f'site:linkedin.com/posts "{termo}"'
             
         elif origem == "Instagram (Perfis)":
@@ -257,8 +254,7 @@ if btn and termo:
                         css_class = "score-warm"
                         icon = "⚠️ MORNO"
                     
-                    # RENDERIZAÇÃO CORRIGIDA (BASEADA NO APP 26)
-                    # O HTML está colado na esquerda para garantir que não seja lido como código
+                    # RENDERIZAÇÃO CORRIGIDA (SEM INDENTAÇÃO NO HTML PARA EVITAR QUE VIRE CÓDIGO)
                     st.markdown(f"""
 <div class="lead-card {css_class}">
     <div style="display:flex; justify-content:space-between; align-items:center;">
