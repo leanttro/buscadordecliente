@@ -4,12 +4,17 @@ import os
 import json
 import time
 import concurrent.futures
+import pandas as pd # NOVO: Para o Excel
+import re # NOVO: Para achar e-mail
+import random # NOVO: Para o delay do minerador
+from io import BytesIO # NOVO: Para o download do Excel
 from groq import Groq
+from googlesearch import search # Requer: pip install googlesearch-python
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LEANTTRO | Buscador de Oportunidades", layout="wide", page_icon="🚀")
 
-# --- ESTILO VISUAL (IDENTIDADE LEANTTRO NEON) ---
+# --- ESTILO VISUAL (IDENTIDADE LEANTTRO NEON - MANTIDA INTACTA) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Chakra+Petch:wght@400;700&display=swap');
@@ -119,6 +124,11 @@ st.markdown("""
     .rec-title { color: #D2FF00; font-weight: bold; font-size: 12px; font-family: monospace; }
     .rec-text { font-size: 13px; color: #ddd; margin-top: 4px; }
     
+    /* ESTILO DAS ABAS (TABS) */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] { background-color: #111; border: 1px solid #333; color: #888; border-radius: 4px; }
+    .stTabs [aria-selected="true"] { background-color: #D2FF00 !important; color: #000 !important; font-weight: bold; }
+
     h1, h2, h3 { font-family: 'Chakra Petch', sans-serif; font-style: italic; }
     a { text-decoration: none !important; }
 </style>
@@ -128,38 +138,38 @@ st.markdown("""
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 
-# --- ESTRATÉGIA DE SUGESTÕES (BASEADA NO LEANTTRO.COM E CURRÍCULO) ---
+# --- ESTRATÉGIA DE SUGESTÕES (MANTIDA ORIGINAL) ---
 SUGESTOES_STRATEGICAS = {
     "Sites de Freelance (Workana/99)": [
-        "preciso programador python", # Venda Skill Técnica (Projeto)
-        "criar site de vendas", # Venda Produto Loja Virtual (Projeto)
-        "dashboard power bi", # Venda Skill Dados (Projeto)
-        "integrar api sistema", # Venda Skill Backend (Projeto)
-        "automação n8n", # Venda Skill Automação (Projeto)
-        "analista de dados gcp" # Híbrido (Pode ser vaga ou projeto)
+        "preciso programador python", 
+        "criar site de vendas", 
+        "dashboard power bi", 
+        "integrar api sistema", 
+        "automação n8n", 
+        "analista de dados gcp" 
     ],
     "LinkedIn (Postagens/Feed)": [
         "preciso de desenvolvedor python",
         "busco freela criação de site",
-        "procuro gestor de tráfego" , # (Pode vender LP para os clientes deles)
+        "procuro gestor de tráfego" , 
         "indicação criação de site",
-        "sistema lento ajuda", # Oportunidade de Refatoração/Consultoria
-        "vaga pj desenvolvedor backend" # Plano B
+        "sistema lento ajuda", 
+        "vaga pj desenvolvedor backend" 
     ],
     "LinkedIn (Empresas)": [
-        "Logística e Transportes", # Seu background na Elo Brindes
-        "Agência de Marketing", # Parceria White Label
+        "Logística e Transportes", 
+        "Agência de Marketing", 
         "Consultoria de Dados",
-        "E-commerce de Autopeças", # Seu nicho de portfólio
-        "Assessoria de Eventos" # Para vender o sistema de casamentos
+        "E-commerce de Autopeças", 
+        "Assessoria de Eventos" 
     ],
     "Instagram/Negócios (Estratégia Maps)": [
-        "auto peças", # Venda: E-commerce Leanttro
-        "assessoria de casamento", # Venda: Site de Casamento/Lista
-        "buffet infantil", # Venda: Site de Festas
-        "loja de roupas feminina", # Venda: Loja Virtual
-        "advocacia", # Venda: Site Institucional
-        "clinica de estética" # Venda: Site Institucional + Agendamento
+        "auto peças", 
+        "assessoria de casamento", 
+        "buffet infantil", 
+        "loja de roupas feminina", 
+        "advocacia", 
+        "clinica de estética" 
     ],
     "Google (Geral)": [
         "contratar criação de site",
@@ -170,7 +180,24 @@ SUGESTOES_STRATEGICAS = {
     ]
 }
 
-# --- FUNÇÕES ---
+# --- FUNÇÕES AUXILIARES (NOVAS E ANTIGAS) ---
+
+def to_excel(df):
+    """Converte DataFrame para bytes de Excel para download"""
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Leads')
+    return output.getvalue()
+
+def extrair_email(texto):
+    """Extrai e-mail de um texto usando Regex"""
+    match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', str(texto))
+    return match.group(0) if match else None
+
+def limpar_nome_insta(titulo):
+    """Limpa o título do Instagram"""
+    if "•" in titulo: return titulo.split("•")[0].strip()
+    return titulo[:40]
 
 def search_google_serper(query, period, num_results=10):
     url = "https://google.serper.dev/search"
@@ -201,7 +228,7 @@ def search_google_serper(query, period, num_results=10):
         return []
 
 def analyze_lead_groq(title, snippet, link, groq_key):
-    """Analisa o post e tenta extrair o autor e contexto"""
+    """Analisa o post e tenta extrair o autor e contexto (MANTIDO ORIGINAL)"""
     if not groq_key: 
         return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     
@@ -249,8 +276,8 @@ def analyze_lead_groq(title, snippet, link, groq_key):
     except Exception as e:
         return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro IA", "argumento_venda": "Falha na análise"}
 
-# Função wrapper para rodar em paralelo
 def process_single_item(item):
+    """Função wrapper para rodar em paralelo"""
     titulo = item.get('title', '')
     link = item.get('link', '')
     snippet = item.get('snippet', '')
@@ -268,13 +295,11 @@ def process_single_item(item):
         "data_pub": data_pub
     }
 
-# --- INTERFACE ---
+# --- INTERFACE PRINCIPAL ---
 
-# 1. Definição do Estado da Seleção (Para pegar as dicas corretas)
-# Precisamos definir a selectbox antes de usar na sidebar para as dicas serem reativas
-
+# Sidebar Global
 with st.sidebar:
-    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Buscador de Oportunidades</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Intelligence Hub</span></h1>", unsafe_allow_html=True)
     st.divider()
     
     if GROQ_API_KEY: st.success("🟢 IA Conectada") 
@@ -294,138 +319,260 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
+# SISTEMA DE ABAS (TABS) PARA ORGANIZAR
+tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR DE EMAILS (INSTAGRAM)"])
 
-st.markdown("<h2 style='color:white'>O QUE VAMOS <span style='color:#D2FF00'>CAÇAR</span> HOJE?</h2>", unsafe_allow_html=True)
+# ==============================================================================
+# ABA 1: O SEU BUSCADOR ORIGINAL (IA + SERPER)
+# ==============================================================================
+with tab1:
+    st.markdown("<h2 style='color:white'>RADAR DE <span style='color:#D2FF00'>OPORTUNIDADES</span></h2>", unsafe_allow_html=True)
 
-# Layout de Busca
-c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
+    # Layout de Busca
+    c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
 
-with c1:
-    origem = st.selectbox("Onde buscar?", list(SUGESTOES_STRATEGICAS.keys()))
+    with c1:
+        origem = st.selectbox("Onde buscar?", list(SUGESTOES_STRATEGICAS.keys()))
 
-# --- VOLTA PARA A SIDEBAR PARA RENDERIZAR AS DICAS DINÂMICAS ---
-with st.sidebar:
-    st.markdown("### 💡 Sugestões para esta Fonte")
-    dicas_atuais = SUGESTOES_STRATEGICAS.get(origem, [])
-    for dica in dicas_atuais:
-        st.code(dica, language="text")
+    # --- Dicas Dinâmicas na Sidebar ---
+    with st.sidebar:
+        st.markdown("### 💡 Sugestões para esta Fonte")
+        dicas_atuais = SUGESTOES_STRATEGICAS.get(origem, [])
+        for dica in dicas_atuais:
+            st.code(dica, language="text")
 
-with c2:
-    termo = st.text_input("Termo ou Nicho:", placeholder="Copie uma sugestão ao lado...")
-with c3:
-    tempo = st.selectbox("Período:", [
-        "Últimas 24 Horas",
-        "Última Semana",
-        "Último Mês",
-        "Qualquer data"
-    ])
-with c4:
-    qtd = st.number_input("Qtd", 1, 50, 8)
+    with c2:
+        termo = st.text_input("Termo ou Nicho:", placeholder="Copie uma sugestão ao lado...")
+    with c3:
+        tempo = st.selectbox("Período:", [
+            "Últimas 24 Horas",
+            "Última Semana",
+            "Último Mês",
+            "Qualquer data"
+        ])
+    with c4:
+        qtd = st.number_input("Qtd", 1, 50, 8)
 
-st.write("##")
-btn = st.button("RASTREAR OPORTUNIDADES")
+    st.write("##")
+    btn = st.button("RASTREAR OPORTUNIDADES", key="btn_radar")
 
-if btn and termo:
-    if not (GROQ_API_KEY and SERPER_API_KEY):
-        st.error("⚠️ Configure as chaves de API no Dokploy!")
-    else:
-        # TRATAMENTO DO FILTRO DE TEMPO
-        periodo_api = ""
-        if "24 Horas" in tempo: periodo_api = "qdr:d"
-        elif "Semana" in tempo: periodo_api = "qdr:w"
-        elif "Mês" in tempo: periodo_api = "qdr:m"
-
-        # CONSTRUÇÃO DA QUERY INTELIGENTE
-        query_final = termo
-        
-        if origem == "LinkedIn (Empresas)":
-            query_final = f'site:linkedin.com/company "{termo}"'
-        elif origem == "LinkedIn (Postagens/Feed)":
-            query_final = f'site:linkedin.com/posts "{termo}"'
-        elif origem == "Sites de Freelance (Workana/99)":
-            # Busca nas duas maiores plataformas ao mesmo tempo
-            query_final = f'(site:workana.com OR site:99freelas.com.br) "{termo}"'
-        elif origem == "Instagram/Negócios (Estratégia Maps)":
-            # Estratégia para achar empresas com contato
-            query_final = f'site:instagram.com "{termo}" "gmail.com"'
-
-        st.caption(f"🔎 Buscando: `{query_final}` | Fonte: `{origem}`")
-
-        # BUSCA + PROCESSAMENTO PARALELO
-        resultados = search_google_serper(query_final, periodo_api, qtd)
-        
-        if not resultados:
-            st.warning("Nenhum sinal encontrado. Tente termos mais amplos.")
+    if btn and termo:
+        if not (GROQ_API_KEY and SERPER_API_KEY):
+            st.error("⚠️ Configure as chaves de API no Dokploy!")
         else:
-            bar_text = st.empty()
-            prog = st.progress(0)
+            # TRATAMENTO DO FILTRO DE TEMPO
+            periodo_api = ""
+            if "24 Horas" in tempo: periodo_api = "qdr:d"
+            elif "Semana" in tempo: periodo_api = "qdr:w"
+            elif "Mês" in tempo: periodo_api = "qdr:m"
+
+            # CONSTRUÇÃO DA QUERY INTELIGENTE
+            query_final = termo
             
-            # Lista para guardar os resultados processados
-            processed_results = []
+            if origem == "LinkedIn (Empresas)":
+                query_final = f'site:linkedin.com/company "{termo}"'
+            elif origem == "LinkedIn (Postagens/Feed)":
+                query_final = f'site:linkedin.com/posts "{termo}"'
+            elif origem == "Sites de Freelance (Workana/99)":
+                query_final = f'(site:workana.com OR site:99freelas.com.br) "{termo}"'
+            elif origem == "Instagram/Negócios (Estratégia Maps)":
+                query_final = f'site:instagram.com "{termo}" "gmail.com"'
+
+            st.caption(f"🔎 Buscando: `{query_final}` | Fonte: `{origem}`")
+
+            # BUSCA + PROCESSAMENTO PARALELO
+            resultados = search_google_serper(query_final, periodo_api, qtd)
             
-            bar_text.text("🕵️ IA analisando leads em paralelo...")
-            
-            # Usando ThreadPoolExecutor para rodar várias análises ao mesmo tempo
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                # Submete todas as tarefas
-                future_to_item = {executor.submit(process_single_item, item): item for item in resultados}
+            if not resultados:
+                st.warning("Nenhum sinal encontrado. Tente termos mais amplos.")
+            else:
+                bar_text = st.empty()
+                prog = st.progress(0)
                 
-                completed = 0
-                for future in concurrent.futures.as_completed(future_to_item):
-                    try:
-                        data = future.result()
-                        processed_results.append(data)
-                    except Exception as exc:
-                        st.error(f"Erro no processamento: {exc}")
+                # Lista para guardar os resultados processados
+                processed_results = []
+                data_export = [] # Lista limpa para o Excel
+                
+                bar_text.text("🕵️ IA analisando leads em paralelo...")
+                
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                    future_to_item = {executor.submit(process_single_item, item): item for item in resultados}
                     
-                    completed += 1
-                    prog.progress(completed / len(resultados))
+                    completed = 0
+                    for future in concurrent.futures.as_completed(future_to_item):
+                        try:
+                            data = future.result()
+                            processed_results.append(data)
+                            
+                            # Prepara dados para Excel
+                            analise_data = data['analise']
+                            data_export.append({
+                                "Titulo": data['titulo'],
+                                "Link": data['link'],
+                                "Score": analise_data.get('score'),
+                                "Autor": analise_data.get('autor'),
+                                "Resumo": analise_data.get('resumo_post'),
+                                "Produto": analise_data.get('produto_recomendado'),
+                                "Argumento": analise_data.get('argumento_venda')
+                            })
+                            
+                        except Exception as exc:
+                            st.error(f"Erro no processamento: {exc}")
+                        
+                        completed += 1
+                        prog.progress(completed / len(resultados))
 
-            bar_text.empty() # Limpa o texto de carregamento
+                bar_text.empty() 
 
-            # RENDERIZAÇÃO DOS CARDS (Ordenados por Score)
-            processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
+                # ORDENAÇÃO
+                processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
+                
+                # --- BOTÃO DE DOWNLOAD EXCEL (NOVO) ---
+                if data_export:
+                    df_radar = pd.DataFrame(data_export)
+                    st.download_button(
+                        label="📥 BAIXAR RELATÓRIO DO RADAR (EXCEL)",
+                        data=to_excel(df_radar),
+                        file_name="radar_leanttro.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_radar"
+                    )
 
-            for p in processed_results:
-                analise = p['analise']
-                score = analise.get('score', 0)
-                autor = analise.get('autor', 'Desconhecido')
-                link = p['link']
-                titulo = p['titulo']
-                snippet = p['snippet']
-                data_pub = p['data_pub']
+                # RENDERIZAÇÃO DOS CARDS
+                for p in processed_results:
+                    analise = p['analise']
+                    score = analise.get('score', 0)
+                    autor = analise.get('autor', 'Desconhecido')
+                    link = p['link']
+                    titulo = p['titulo']
+                    snippet = p['snippet']
+                    data_pub = p['data_pub']
 
-                # Define estilo
-                css_class = "score-cold"
-                icon = "❄️"
-                if score >= 80:
-                    css_class = "score-hot"
-                    icon = "🔥 HOT"
-                elif score >= 50:
-                    css_class = "score-warm"
-                    icon = "⚠️ MORNO"
+                    css_class = "score-cold"
+                    icon = "❄️"
+                    if score >= 80:
+                        css_class = "score-hot"
+                        icon = "🔥 HOT"
+                    elif score >= 50:
+                        css_class = "score-warm"
+                        icon = "⚠️ MORNO"
 
-                card_html = f"""
-<div class="lead-card {css_class}">
-<div style="display:flex; justify-content:space-between; align-items:center;">
-    <div>
-        <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}</span>
-        <span class="tag-nicho">Autor: {autor}</span>
-    </div>
-    <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
-</div>
+                    card_html = f"""
+                    <div class="lead-card {css_class}">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}</span>
+                            <span class="tag-nicho">Autor: {autor}</span>
+                        </div>
+                        <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
+                    </div>
 
-<div style="margin-top:10px;">
-    <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
-</div>
-<div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
+                    <div style="margin-top:10px;">
+                        <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
+                    </div>
+                    <div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
 
-<div class="recommendation-box">
-    <div class="rec-title">// ESTRATÉGIA:</div>
-    <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
-    <div class="rec-text"><span style="color:#666">RESUMO:</span> {analise.get('resumo_post', '')}</div>
-    <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
-</div>
-</div>
-"""
-                st.markdown(card_html, unsafe_allow_html=True)
+                    <div class="recommendation-box">
+                        <div class="rec-title">// ESTRATÉGIA:</div>
+                        <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
+                        <div class="rec-text"><span style="color:#666">RESUMO:</span> {analise.get('resumo_post', '')}</div>
+                        <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
+                    </div>
+                    </div>
+                    """
+                    st.markdown(card_html, unsafe_allow_html=True)
+
+
+# ==============================================================================
+# ABA 2: MINERADOR DE LEADS (NOVA FUNCIONALIDADE INTEGRADA)
+# ==============================================================================
+with tab2:
+    st.markdown("<h2 style='color:white'>MINERADOR DE <span style='color:#D2FF00'>LEADS B2B</span></h2>", unsafe_allow_html=True)
+    st.caption("Focado em encontrar e-mails públicos de empresas no Instagram. Ideal para Buffets e Assessores para a estratégia de parceria.")
+
+    col_m1, col_m2, col_m3 = st.columns(3)
+    with col_m1: 
+        cidade_alvo = st.text_input("Cidade Alvo:", value="São Paulo")
+    with col_m2: 
+        nicho_alvo = st.selectbox("Nicho:", ["Buffet Casamento", "Assessoria de Eventos", "Espaço de Eventos", "Outro"])
+    with col_m3: 
+        termo_custom = ""
+        if nicho_alvo == "Outro":
+            termo_custom = st.text_input("Digite o Nicho:", placeholder="Ex: Clínica Estética")
+    
+    termo_final = termo_custom if nicho_alvo == "Outro" else nicho_alvo
+    
+    st.write("##")
+    btn_mine = st.button("⛏️ INICIAR MINERAÇÃO", key="btn_mine")
+    
+    if btn_mine:
+        if not termo_final:
+            st.error("Defina um nicho para buscar.")
+        else:
+            leads_encontrados = []
+            status_box = st.status("⛏️ Minerando Google & Instagram...", expanded=True)
+            
+            # Termos de variação para melhorar a busca
+            termos_busca = [termo_final]
+            if "Buffet" in termo_final: termos_busca.append("Espaço para festas")
+            if "Assessoria" in termo_final: termos_busca.append("Cerimonialista")
+            
+            total_varredura = 0
+            
+            # Executa a busca
+            for t in termos_busca:
+                # Query Dorking
+                query_mine = f'site:instagram.com "{t}" "{cidade_alvo}" "@gmail.com" OR "@hotmail.com"'
+                status_box.write(f"🔎 Varrendo: {t} em {cidade_alvo}...")
+                
+                try:
+                    # Tenta buscar 15 resultados por termo (googlesearch)
+                    results = search(query_mine, num_results=15, advanced=True)
+                    
+                    for res in results:
+                        # Extrai email da descrição ou titulo
+                        email = extrair_email(res.description)
+                        if not email: email = extrair_email(res.title)
+                        
+                        if email:
+                            # Evita duplicatas na lista atual
+                            if not any(l['email'] == email for l in leads_encontrados):
+                                nome = limpar_nome_insta(res.title)
+                                leads_encontrados.append({
+                                    "nome": nome,
+                                    "email": email,
+                                    "empresa": f"{t} - {cidade_alvo}",
+                                    "categoria": "Buffet/Assessoria" if "Buffet" in t or "Assessoria" in t else "Outros",
+                                    "origem": "Instagram Miner",
+                                    "url": res.url
+                                })
+                                total_varredura += 1
+                                # Atualiza status levemente para dar feedback visual
+                                if total_varredura % 2 == 0:
+                                    status_box.write(f"✅ Encontrado: {email} ({nome})")
+                                
+                        # Delay aleatório para evitar bloqueio 429 do Google
+                        time.sleep(random.uniform(0.5, 1.5)) 
+                        
+                except Exception as e:
+                    status_box.warning(f"Google pausou a busca ou erro de conexão: {e}")
+                    break
+            
+            status_box.update(label=f"Mineração Concluída! {len(leads_encontrados)} leads novos.", state="complete")
+            
+            if leads_encontrados:
+                df_mine = pd.DataFrame(leads_encontrados)
+                st.markdown("### 📋 Resultados Encontrados")
+                st.dataframe(df_mine, use_container_width=True)
+                
+                # BOTÃO EXCEL
+                st.download_button(
+                    label="📥 BAIXAR LISTA DE LEADS (EXCEL)",
+                    data=to_excel(df_mine),
+                    file_name=f"leads_{cidade_alvo}_{termo_final}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_mine"
+                )
+                st.success("👉 Baixe o Excel e importe na aba 'Modo Sniper' do seu CRM!")
+            else:
+                st.warning("Nenhum e-mail público encontrado. Tente mudar a cidade ou o termo.")
