@@ -254,30 +254,32 @@ if btn and termo:
                         css_class = "score-warm"
                         icon = "⚠️ MORNO"
                     
-                    # RENDERIZAÇÃO CORRIGIDA (SEM INDENTAÇÃO NO HTML PARA EVITAR QUE VIRE CÓDIGO)
-                    st.markdown(f"""
+                    # RENDERIZAÇÃO CORRIGIDA - HTML SEM INDENTAÇÃO NA STRING
+                    # O HTML abaixo está "colado" na esquerda propositalmente. NÃO INDENTAR.
+                    card_html = f"""
 <div class="lead-card {css_class}">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div>
-            <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}</span>
-            <span class="tag-nicho">Autor: {autor}</span>
-        </div>
-        <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
+<div style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+        <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}</span>
+        <span class="tag-nicho">Autor: {autor}</span>
     </div>
-    
-    <div style="margin-top:10px;">
-        <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
-    </div>
-    <div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
-    
-    <div class="recommendation-box">
-        <div class="rec-title">// ESTRATÉGIA:</div>
-        <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
-        <div class="rec-text"><span style="color:#666">RESUMO:</span> {analise.get('resumo_post', '')}</div>
-        <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
-    </div>
+    <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
 </div>
-""", unsafe_allow_html=True)
+
+<div style="margin-top:10px;">
+    <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
+</div>
+<div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
+
+<div class="recommendation-box">
+    <div class="rec-title">// ESTRATÉGIA:</div>
+    <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
+    <div class="rec-text"><span style="color:#666">RESUMO:</span> {analise.get('resumo_post', '')}</div>
+    <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
+</div>
+</div>
+"""
+                    st.markdown(card_html, unsafe_allow_html=True)
                     
                     time.sleep(0.1) 
                     prog.progress((i+1)/len(resultados))
