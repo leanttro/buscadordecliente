@@ -15,6 +15,17 @@ st.markdown("""
     
     .stApp { background-color: #050505; color: #E5E7EB; font-family: 'Kanit', sans-serif; }
     
+    /* --- BARRA LATERAL (SIDEBAR) --- */
+    section[data-testid="stSidebar"] {
+        background-color: #2e2e2e !important;
+    }
+
+    /* --- TEXTOS/LABELS DOS INPUTS (BRANCO) --- */
+    .stTextInput label, .stSelectbox label, .stNumberInput label {
+        color: #ffffff !important;
+        font-size: 14px !important;
+    }
+    
     /* Botão Principal Neon */
     div.stButton > button { 
         background-color: #D2FF00; color: #000; border: none; 
@@ -28,7 +39,7 @@ st.markdown("""
         transform: skewX(-5deg);
     }
     
-    /* Inputs */
+    /* Inputs (Caixas de texto) */
     .stTextInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stNumberInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stSelectbox > div > div { background-color: #111; color: white; border: 1px solid #333; }
@@ -116,14 +127,6 @@ def analyze_lead_groq(title, snippet, link, groq_key):
     
     client = Groq(api_key=groq_key)
     
-    # MENU DE SERVIÇOS LEANTTRO
-    LEANTTRO_PORTFOLIO = """
-    1. OUTSOURCING/FREELANCE: Desenvolvimento Python, Automação, Dashboards.
-    2. SITES/LANDING PAGES: Criação rápida para eventos ou lançamentos.
-    3. E-COMMERCE: Lojas virtuais.
-    4. AUTOMAÇÃO: Chatbots e IA.
-    """
-
     system_prompt = f"""
     ATUE COMO: Head de Vendas da 'Leanttro Digital'.
     
@@ -161,7 +164,7 @@ def analyze_lead_groq(title, snippet, link, groq_key):
 # --- INTERFACE ---
 
 with st.sidebar:
-    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#666'>HUNTER V2</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Buscador de Clientes</span></h1>", unsafe_allow_html=True)
     st.divider()
     
     if GROQ_API_KEY: st.success("🟢 IA Conectada") 
@@ -254,8 +257,7 @@ if btn and termo:
                         css_class = "score-warm"
                         icon = "⚠️ MORNO"
                     
-                    # RENDERIZAÇÃO CORRIGIDA - HTML SEM INDENTAÇÃO NA STRING
-                    # O HTML abaixo está "colado" na esquerda propositalmente. NÃO INDENTAR.
+                    # RENDERIZAÇÃO CORRIGIDA - HTML SEM INDENTAÇÃO
                     card_html = f"""
 <div class="lead-card {css_class}">
 <div style="display:flex; justify-content:space-between; align-items:center;">
