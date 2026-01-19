@@ -64,8 +64,6 @@ st.markdown("""
     .rec-text { font-size: 13px; color: #ddd; margin-top: 4px; }
     
     h1, h2, h3 { font-family: 'Chakra Petch', sans-serif; font-style: italic; }
-    
-    /* Forçar links a não terem sublinhado padrão */
     a { text-decoration: none !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -76,16 +74,25 @@ SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 
 # --- FUNÇÕES ---
 
-def search_google_serper(query, num_results=10):
-    """Busca no Google/Serper"""
+def search_google_serper(query, period, num_results=10):
+    """
+    Busca no Google/Serper com filtro de tempo (tbs).
+    period: 'qdr:d' (24h), 'qdr:w' (semana), 'qdr:m' (mês) ou '' (qualquer data)
+    """
     url = "https://google.serper.dev/search"
     
-    payload = json.dumps({
+    payload_dict = {
         "q": query,
         "num": num_results,
         "gl": "br", 
         "hl": "pt-br"
-    })
+    }
+    
+    # Se tiver filtro de tempo, adiciona ao payload
+    if period:
+        payload_dict["tbs"] = period
+
+    payload = json.dumps(payload_dict)
     
     headers = {
         'X-API-KEY': SERPER_API_KEY,
@@ -104,43 +111,37 @@ def search_google_serper(query, num_results=10):
         return []
 
 def analyze_lead_groq(title, snippet, link, groq_key):
-    """Analisa o lead com a IA"""
+    """Analisa o post e tenta extrair o autor"""
     if not groq_key: 
-        return {"score": 0, "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
+        return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     
     client = Groq(api_key=groq_key)
     
     # MENU DE SERVIÇOS LEANTTRO
     LEANTTRO_PORTFOLIO = """
-    1. WEB PRESENCE: Sites Institucionais, Landing Pages (Advogados, Médicos, Prestadores).
-    2. E-COMMERCE: Lojas Virtuais (Varejo, Auto-peças, Roupas).
-    3. EVENTOS: Sites para Casamentos/Festas com RSVP e Lista de Presentes (Buffets, Espaços, Assessoria).
-    4. AUTOMAÇÃO/DADOS: Dashboards, Integrações n8n, Chatbots (Empresas com processos manuais, Logística, Imobiliárias).
+    1. OUTSOURCING/FREELANCE: Desenvolvimento Python, Automação, Dashboards.
+    2. SITES/LANDING PAGES: Criação rápida para eventos ou lançamentos.
+    3. E-COMMERCE: Lojas virtuais.
+    4. AUTOMAÇÃO: Chatbots e IA.
     """
 
     system_prompt = f"""
-    ATUE COMO: Consultor Sênior da 'Leanttro Digital'.
-    OBJETIVO: Analisar resultados de busca (Google/Linkedin/Instagram) para vender tecnologia.
+    ATUE COMO: Head de Vendas da 'Leanttro Digital'.
     
-    PORTFÓLIO:
-    {LEANTTRO_PORTFOLIO}
+    CONTEXTO: O usuário buscou por POSTAGENS no LinkedIn/Google.
     
-    REGRAS DE ANÁLISE:
-    - Se a fonte for INSTAGRAM/LINKEDIN: O cliente PROVAVELMENTE não tem site ou é fraco. 
-      -> Argumento: "Profissionalize sua marca, saia do amadorismo das redes sociais."
-    
-    - Buffets/Festas -> Foco: SITE DE FESTAS (RSVP/Presentes).
-    - Varejo/Loja Física -> Foco: LOJA VIRTUAL (Venda dormindo).
-    - Serviços (Adv/Med) -> Foco: SITE INSTITUCIONAL (Autoridade).
-    - Empresas Operacionais -> Foco: AUTOMAÇÃO/DADOS.
+    TAREFAS:
+    1. Tente identificar o NOME DA PESSOA que fez o post (Geralmente está no título antes de "no LinkedIn" ou "on LinkedIn").
+    2. Analise se é uma oportunidade de venda ou vaga de emprego.
+    3. Defina um SCORE (0-100) de quão quente é esse lead para oferecer serviços de TI/Dev.
     
     SAÍDA JSON OBRIGATÓRIA:
     {{
+        "autor": "Nome da Pessoa (ou Empresa)",
         "score": (0-100),
-        "nicho_detectado": "Ex: Advocacia Trabalhista",
-        "dor_principal": "Ex: Só usa Instagram, sem site profissional",
-        "produto_recomendado": "Ex: Site Institucional",
-        "argumento_venda": "Pitch curto de 1 frase focado na dor."
+        "resumo_post": "O que a pessoa está procurando? (max 10 palavras)",
+        "produto_recomendado": "Qual serviço Leanttro se encaixa?",
+        "argumento_venda": "Abordagem para chamar a atenção dessa pessoa."
     }}
     """
     
@@ -156,12 +157,12 @@ def analyze_lead_groq(title, snippet, link, groq_key):
         )
         return json.loads(completion.choices[0].message.content)
     except Exception as e:
-        return {"score": 0, "produto_recomendado": "Erro AI", "argumento_venda": str(e)}
+        return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro AI", "argumento_venda": str(e)}
 
 # --- INTERFACE ---
 
 with st.sidebar:
-    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#666'>BUSCADOR DE CLIENTES</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#666'>HUNTER V2</span></h1>", unsafe_allow_html=True)
     st.divider()
     
     if GROQ_API_KEY: st.success("🟢 IA Conectada") 
@@ -171,19 +172,31 @@ with st.sidebar:
     else: st.error("🔴 Falta SERPER KEY")
 
     st.divider()
-    st.markdown("### 🎯 Dicas de Ouro")
-    st.info("Buscar no LinkedIn/Instagram traz empresas que muitas vezes NÃO TEM SITE. É o melhor lead!")
+    st.markdown("### 🎯 Modo Postagem")
+    st.info("A opção 'LinkedIn (Postagens)' busca dentro do feed. Use termos como 'Contratando', 'Preciso de dev', 'Indicação'.")
 
-st.markdown("<h2 style='color:white'>QUEM VAMOS <span style='color:#D2FF00'>DIGITALIZAR</span> HOJE?</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color:white'>O QUE VAMOS <span style='color:#D2FF00'>CAÇAR</span> HOJE?</h2>", unsafe_allow_html=True)
 
 # Layout de Busca
-c1, c2, c3 = st.columns([2, 4, 1])
+c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
 
 with c1:
-    origem = st.selectbox("Onde buscar?", ["Google (Web Geral)", "LinkedIn (Empresas)", "Instagram (Perfis)"])
+    origem = st.selectbox("Onde buscar?", [
+        "LinkedIn (Postagens/Feed)", 
+        "LinkedIn (Empresas)", 
+        "Google (Geral)",
+        "Instagram (Perfis)"
+    ])
 with c2:
-    termo = st.text_input("Nicho / Termo:", placeholder="Ex: Logística, Buffet Infantil, Dentista...")
+    termo = st.text_input("Termo de Busca:", placeholder="Ex: contratando dev python, preciso de site...")
 with c3:
+    tempo = st.selectbox("Período (Recência):", [
+        "Últimas 24 Horas (qdr:d)",
+        "Última Semana (qdr:w)",
+        "Último Mês (qdr:m)",
+        "Qualquer data"
+    ])
+with c4:
     qtd = st.number_input("Qtd", 1, 50, 5)
 
 st.write("##")
@@ -193,31 +206,47 @@ if btn and termo:
     if not (GROQ_API_KEY and SERPER_API_KEY):
         st.error("⚠️ Configure as chaves de API no Dokploy (Environment)!")
     else:
+        # TRATAMENTO DO FILTRO DE TEMPO
+        periodo_api = ""
+        if "24 Horas" in tempo: periodo_api = "qdr:d"
+        elif "Semana" in tempo: periodo_api = "qdr:w"
+        elif "Mês" in tempo: periodo_api = "qdr:m"
+
         # LÓGICA DE FILTRO DE REDES SOCIAIS
         query_final = termo
+        
         if origem == "LinkedIn (Empresas)":
             query_final = f'site:linkedin.com/company "{termo}"'
+        elif origem == "LinkedIn (Postagens/Feed)":
+            # Busca focada em POSTS
+            query_final = f'site:linkedin.com/postsOrFeed "{termo}"' 
+            # Dica: site:linkedin.com/posts costuma pegar posts individuais
+            # Às vezes o Google indexa melhor como site:linkedin.com/feed ou apenas a palavra chave + site:linkedin.com
+            query_final = f'site:linkedin.com/posts "{termo}"'
+            
         elif origem == "Instagram (Perfis)":
             query_final = f'site:instagram.com "{termo}"'
 
-        st.caption(f"🔎 Buscando por: `{query_final}`")
+        st.caption(f"🔎 Buscando por: `{query_final}` | Filtro: `{tempo}`")
 
-        with st.spinner("🕵️ Minando dados..."):
-            resultados = search_google_serper(query_final, qtd)
+        with st.spinner("🕵️ Minando dados recentes..."):
+            resultados = search_google_serper(query_final, periodo_api, qtd)
             
             if not resultados:
-                st.warning("Nenhum sinal encontrado. Tente termos mais amplos.")
+                st.warning("Nenhum sinal encontrado. Tente aumentar o período de tempo.")
             else:
                 prog = st.progress(0)
                 for i, item in enumerate(resultados):
                     titulo = item.get('title', '')
                     link = item.get('link', '')
                     snippet = item.get('snippet', '')
+                    data_pub = item.get('date', 'Data não ident.') # Serper as vezes retorna a data
                     
                     # Analisa com a nova inteligência Leanttro
                     analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY)
                     
                     score = analise.get('score', 0)
+                    autor = analise.get('autor', 'Desconhecido')
                     
                     # Define estilo baseado no Score
                     css_class = "score-cold"
@@ -229,27 +258,26 @@ if btn and termo:
                         css_class = "score-warm"
                         icon = "⚠️ MORNO"
                     
-                    # --- CORREÇÃO DEFINITIVA DO ERRO VISUAL ---
-                    # Usamos textwrap.dedent para garantir que o HTML não tenha espaços no início das linhas
+                    # CARD BLINDADO COM TEXTWRAP
                     card_html = textwrap.dedent(f"""
                         <div class="lead-card {css_class}">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div>
-                                    <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}/100</span>
-                                    <span class="tag-nicho">{analise.get('nicho_detectado', 'Geral')}</span>
+                                    <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}</span>
+                                    <span class="tag-nicho">Autor: {autor}</span>
                                 </div>
-                                <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VISITAR {origem.split()[0].upper()} 🔗</a>
+                                <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
                             </div>
                             
                             <div style="margin-top:10px;">
                                 <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
                             </div>
-                            <div style="color:#888; font-size:12px; margin:5px 0;">{snippet[:200]}...</div>
+                            <div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
                             
                             <div class="recommendation-box">
-                                <div class="rec-title">// DIAGNÓSTICO LEANTTRO:</div>
-                                <div style="color: #fff; font-weight:bold;">VENDER: {analise.get('produto_recomendado', 'N/A').upper()}</div>
-                                <div class="rec-text"><span style="color:#666">DOR:</span> {analise.get('dor_principal', '')}</div>
+                                <div class="rec-title">// ESTRATÉGIA:</div>
+                                <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
+                                <div class="rec-text"><span style="color:#666">RESUMO:</span> {analise.get('resumo_post', '')}</div>
                                 <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
                             </div>
                         </div>
