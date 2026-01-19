@@ -46,7 +46,7 @@ st.markdown("""
     .score-warm { border-left: 4px solid #fff; }    /* Morno */
     .score-cold { border-left: 4px solid #333; }    /* Frio */
 
-    .lead-title { font-family: 'Chakra Petch', sans-serif; font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 5px; text-decoration: none; }
+    .lead-title { font-family: 'Chakra Petch', sans-serif; font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 5px; text-decoration: none; display: block; }
     .lead-title:hover { color: #D2FF00; }
     
     .tag-nicho { 
@@ -225,8 +225,9 @@ if btn and termo:
                         css_class = "score-warm"
                         icon = "⚠️ MORNO"
                     
-                    # HTML SEM INDENTAÇÃO PARA CORRIGIR O ERRO DE VISUALIZAÇÃO
-                    st.markdown(f"""
+                    # --- CORREÇÃO DO ERRO VISUAL ---
+                    # Removemos a indentação extra usando .strip() e garantindo que o f-string não quebre o markdown
+                    card_html = f"""
 <div class="lead-card {css_class}">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
@@ -248,7 +249,8 @@ if btn and termo:
         <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+"""
+                    st.markdown(card_html, unsafe_allow_html=True)
                     
                     time.sleep(0.1) 
                     prog.progress((i+1)/len(resultados))
