@@ -486,7 +486,7 @@ with tab1:
 
 
 # ==============================================================================
-# ABA 2: MINERADOR DE LEADS (CORRIGIDO PARA EVITAR ERRO 400 - QUERY NOT ALLOWED)
+# ABA 2: MINERADOR DE LEADS (CORRIGIDO: QUERY SIMPLIFICADA PARA EVITAR ERRO 400)
 # ==============================================================================
 with tab2:
     st.markdown("<h2 style='color:white'>MINERADOR DE <span style='color:#D2FF00'>LEADS B2B</span></h2>", unsafe_allow_html=True)
@@ -525,14 +525,15 @@ with tab2:
             
             # Executa a busca
             for t in termos_busca:
-                # --- FIX CRÍTICO: QUERY 'SAFE' PARA NÃO DAR ERRO 400 ---
-                # Removemos o @ explícito e usamos "gmail.com" como texto
-                query_mine = f'site:instagram.com "{t}" "{cidade_alvo}" (gmail.com OR hotmail.com OR contato)'
+                # --- FIX DEFINITIVO DO ERRO 400 ---
+                # A API do Serper bloqueia queries complexas com OR/AND dentro do site:instagram.
+                # A solução é fazer uma busca SIMPLES e deixar o regex pegar o email no snippet.
+                query_mine = f'site:instagram.com "{t}" "{cidade_alvo}" contato'
                 
                 status_box.write(f"🔎 Varrendo: {t} em {cidade_alvo}...")
                 
                 # USA A FUNÇÃO SERPER EXISTENTE
-                results = search_google_serper(query_mine, period="", num_results=50) # Pede 50 resultados de uma vez
+                results = search_google_serper(query_mine, period="", num_results=50) 
                 
                 if not results:
                     status_box.warning(f"Sem resultados para {t} (ou erro na API).")
