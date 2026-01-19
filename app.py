@@ -3,7 +3,6 @@ import requests
 import os
 import json
 import time
-import textwrap
 from groq import Groq
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
@@ -240,7 +239,7 @@ if btn and termo:
                     titulo = item.get('title', '')
                     link = item.get('link', '')
                     snippet = item.get('snippet', '')
-                    data_pub = item.get('date', 'Data não ident.') # Serper as vezes retorna a data
+                    data_pub = item.get('date', 'Data não ident.') 
                     
                     # Analisa com a nova inteligência Leanttro
                     analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY)
@@ -258,32 +257,31 @@ if btn and termo:
                         css_class = "score-warm"
                         icon = "⚠️ MORNO"
                     
-                    # CARD BLINDADO COM TEXTWRAP
-                    card_html = textwrap.dedent(f"""
-                        <div class="lead-card {css_class}">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div>
-                                    <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}</span>
-                                    <span class="tag-nicho">Autor: {autor}</span>
-                                </div>
-                                <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
-                            </div>
-                            
-                            <div style="margin-top:10px;">
-                                <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
-                            </div>
-                            <div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
-                            
-                            <div class="recommendation-box">
-                                <div class="rec-title">// ESTRATÉGIA:</div>
-                                <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
-                                <div class="rec-text"><span style="color:#666">RESUMO:</span> {analise.get('resumo_post', '')}</div>
-                                <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
-                            </div>
-                        </div>
-                    """)
-                    
-                    st.markdown(card_html, unsafe_allow_html=True)
+                    # RENDERIZAÇÃO CORRIGIDA (BASEADA NO APP 26)
+                    # O HTML está colado na esquerda para garantir que não seja lido como código
+                    st.markdown(f"""
+<div class="lead-card {css_class}">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}</span>
+            <span class="tag-nicho">Autor: {autor}</span>
+        </div>
+        <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
+    </div>
+    
+    <div style="margin-top:10px;">
+        <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
+    </div>
+    <div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
+    
+    <div class="recommendation-box">
+        <div class="rec-title">// ESTRATÉGIA:</div>
+        <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
+        <div class="rec-text"><span style="color:#666">RESUMO:</span> {analise.get('resumo_post', '')}</div>
+        <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
                     
                     time.sleep(0.1) 
                     prog.progress((i+1)/len(resultados))
