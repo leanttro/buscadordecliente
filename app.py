@@ -6,47 +6,62 @@ import time
 from groq import Groq
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="ELO HUNTER", layout="wide", page_icon="🦅")
+st.set_page_config(page_title="LEANTTRO HUNTER", layout="wide", page_icon="🚀")
 
+# --- ESTILO VISUAL (IDENTIDADE LEANTTRO NEON) ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Chakra+Petch:wght@400;700&display=swap');
     
-    .stApp { background-color: #050505; color: #E5E7EB; font-family: 'Inter', sans-serif; }
+    .stApp { background-color: #050505; color: #E5E7EB; font-family: 'Kanit', sans-serif; }
     
+    /* Botão Principal Neon */
     div.stButton > button { 
-        background-color: #E31937; color: white; border: none; 
-        border-radius: 6px; font-weight: bold; width: 100%; 
+        background-color: #D2FF00; color: #000; border: none; 
+        border-radius: 4px; font-weight: 800; width: 100%; 
+        text-transform: uppercase; font-style: italic;
+        transition: all 0.3s ease;
     }
-    div.stButton > button:hover { background-color: #C2132F; border-color: #C2132F; }
-    
-    .stTextInput > div > div > input { color: #fff; background-color: #1a1a1a; border-color: #333; }
-    
-    .lead-card {
-        background-color: #151515 !important; padding: 20px; border-radius: 12px;
-        border: 1px solid #333; margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    div.stButton > button:hover { 
+        background-color: #ffffff; 
+        box-shadow: 0 0 15px rgba(210, 255, 0, 0.5);
+        transform: skewX(-5deg);
     }
     
-    .status-alta { border-left: 6px solid #00cc99; }
-    .status-media { border-left: 6px solid #ffcc00; }
-    .status-baixa { border-left: 6px solid #ff3333; }
+    /* Inputs */
+    .stTextInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
+    .stNumberInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
 
-    .lead-title { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 5px; }
-    .lead-link { color: #3b82f6; text-decoration: none; font-size: 14px; }
-    .lead-link:hover { text-decoration: underline; color: #60a5fa; }
-    
-    .tag-produto { 
-        background-color: #252525; color: #E31937; padding: 2px 8px; 
-        border-radius: 4px; border: 1px solid #E31937; font-size: 11px; 
-        text-transform: uppercase; font-weight: bold;
+    /* Card do Lead */
+    .lead-card {
+        background-color: #0a0a0a !important; padding: 25px; border-radius: 8px;
+        border: 1px solid #222; margin-bottom: 20px;
+        position: relative; overflow: hidden;
     }
+    .lead-card:hover { border-color: #D2FF00; }
     
-    .ai-analysis {
-        background-color: #2A1015; padding: 10px; border-radius: 6px; margin-top: 10px;
-        border: 1px solid #333; color: #ccc; font-style: italic; font-size: 13px;
+    /* Scores */
+    .score-hot { border-left: 4px solid #D2FF00; } /* Quente */
+    .score-warm { border-left: 4px solid #fff; }    /* Morno */
+    .score-cold { border-left: 4px solid #333; }    /* Frio */
+
+    .lead-title { font-family: 'Chakra Petch', sans-serif; font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 5px; text-decoration: none; }
+    .lead-title:hover { color: #D2FF00; }
+    
+    .tag-nicho { 
+        background-color: #1a1a1a; color: #bbb; padding: 2px 8px; 
+        border-radius: 4px; font-size: 10px; font-family: monospace;
+        border: 1px solid #333; margin-right: 5px;
     }
-    section[data-testid="stSidebar"] { background-color: #111; border-right: 1px solid #333; }
+
+    .recommendation-box {
+        background-color: #111; border: 1px dashed #444; 
+        padding: 10px; margin-top: 15px; border-radius: 4px;
+    }
+    .rec-title { color: #D2FF00; font-weight: bold; font-size: 12px; font-family: monospace; }
+    .rec-text { font-size: 13px; color: #ddd; margin-top: 4px; }
+    
+    h1, h2, h3 { font-family: 'Chakra Petch', sans-serif; font-style: italic; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -57,15 +72,14 @@ SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 # --- FUNÇÕES ---
 
 def search_google_serper(query, num_results=10):
-    """Busca no Google usando a API da Serper.dev (imune a bloqueios de servidor)"""
+    """Busca no Google Geral (Web) para achar empresas e sites"""
     url = "https://google.serper.dev/search"
     
-    # DORK: site:linkedin.com/posts garante que só pegamos posts do feed
     payload = json.dumps({
-        "q": f'site:linkedin.com/posts {query} -intitle:jobs',
+        "q": query,
         "num": num_results,
-        "gl": "br", # Geolocalização Brasil
-        "hl": "pt-br" # Idioma Português
+        "gl": "br", 
+        "hl": "pt-br"
     })
     
     headers = {
@@ -84,28 +98,43 @@ def search_google_serper(query, num_results=10):
         st.error(f"Erro de conexão: {e}")
         return []
 
-def analyze_lead_groq(title, snippet, groq_key):
-    """Analisa o texto com Llama3 na Groq"""
+def analyze_lead_groq(title, snippet, link, groq_key):
+    """Analisa o lead com foco em Venda de Software e Sites"""
     if not groq_key: 
-        return {"classificacao": "ERRO", "motivo": "Falta chave Groq", "produto": "-"}
+        return {"score": 0, "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     
     client = Groq(api_key=groq_key)
     
-    system_prompt = """
-    Você é um caçador de leads da Elo Brindes.
-    Analise o título e o snippet de um post do LinkedIn.
-    
-    Critérios:
-    1. ALTA: Pede "indicação de brindes", "fornecedor", ou diz "vagas abertas"/"time crescendo" (Sinal de Kit Onboarding).
-    2. MEDIA: Eventos corporativos, convenções, expansão.
-    3. BAIXA: Procura de emprego, artigos genéricos.
+    # MENU DE SERVIÇOS LEANTTRO
+    LEANTTRO_PORTFOLIO = """
+    1. WEB PRESENCE: Sites Institucionais, Landing Pages (Advogados, Médicos, Prestadores).
+    2. E-COMMERCE: Lojas Virtuais (Varejo, Auto-peças, Roupas).
+    3. EVENTOS: Sites para Casamentos/Festas com RSVP e Lista de Presentes (Buffets, Espaços, Assessoria).
+    4. AUTOMAÇÃO/DADOS: Dashboards, Integrações n8n, Chatbots (Empresas com processos manuais, Logística, Imobiliárias).
+    """
 
-    Responda APENAS JSON:
-    {
-        "classificacao": "ALTA" | "MEDIA" | "BAIXA",
-        "motivo": "Explicação muito breve",
-        "produto": "Sugestão (Kit Onboarding, Mochila, etc)"
-    }
+    system_prompt = f"""
+    ATUE COMO: Consultor Sênior da 'Leanttro Digital'.
+    OBJETIVO: Analisar resultados do Google para vender tecnologia.
+    
+    PORTFÓLIO:
+    {LEANTTRO_PORTFOLIO}
+    
+    REGRAS DE ANÁLISE:
+    - Buffets/Festas -> Foco: SITE DE FESTAS (RSVP/Presentes).
+    - Varejo/Loja Física -> Foco: LOJA VIRTUAL.
+    - Serviços (Adv/Med) -> Foco: SITE INSTITUCIONAL (Autoridade).
+    - Empresas Operacionais -> Foco: AUTOMAÇÃO/DADOS.
+    - Se o link for 'instagram.com' ou 'facebook.com', SCORE AUMENTA (significa que não tem site próprio).
+    
+    SAÍDA JSON OBRIGATÓRIA:
+    {{
+        "score": (0-100),
+        "nicho_detectado": "Ex: Advocacia Trabalhista",
+        "dor_principal": "Ex: Sem site profissional, apenas Instagram",
+        "produto_recomendado": "Ex: Site Institucional",
+        "argumento_venda": "Pitch curto de 1 frase focado na dor."
+    }}
     """
     
     try:
@@ -113,87 +142,105 @@ def analyze_lead_groq(title, snippet, groq_key):
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"TITULO: {title}\nSNIPPET: {snippet}"}
+                {"role": "user", "content": f"TITULO: {title}\nSNIPPET: {snippet}\nLINK: {link}"}
             ],
-            temperature=0,
+            temperature=0.1,
             response_format={"type": "json_object"}
         )
         return json.loads(completion.choices[0].message.content)
-    except Exception:
-        return {"classificacao": "BAIXA", "motivo": "Erro AI", "produto": "-"}
+    except Exception as e:
+        return {"score": 0, "produto_recomendado": "Erro AI", "argumento_venda": str(e)}
 
 # --- INTERFACE ---
 
 with st.sidebar:
-    st.markdown(f"<h2 style='color: #E31937; text-align: center;'>🦅 ELO HUNTER</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#666'>BUSCADOR DE CLIENTES</span></h1>", unsafe_allow_html=True)
     st.divider()
     
-    if GROQ_API_KEY: st.success("✅ IA Conectada") 
-    else: st.error("⚠️ Falta GROQ KEY")
+    if GROQ_API_KEY: st.success("🟢 IA Conectada") 
+    else: st.error("🔴 Falta GROQ KEY")
     
-    if SERPER_API_KEY: st.success("✅ Serper Google Ativo")
-    else: st.error("⚠️ Falta SERPER KEY")
+    if SERPER_API_KEY: st.success("🟢 Google Search Ativo")
+    else: st.error("🔴 Falta SERPER KEY")
 
     st.divider()
-    st.markdown("### 💡 Dicas")
-    st.code("indicação brindes")
-    st.code("estamos contratando")
-    st.code("onboarding kit")
+    st.markdown("### 🎯 Estratégias de Busca")
+    st.caption("Use estes termos para achar quem precisa de você:")
+    
+    st.markdown("**1. Para vender Automação/N8N:**")
+    st.code('site:linkedin.com/company "logística" "manual"')
+    
+    st.markdown("**2. Para vender Sites de Festas:**")
+    st.code('"Buffet Infantil" "orçamento" SP')
+    
+    st.markdown("**3. Para vender E-commerce:**")
+    st.code('"Loja de Roupas" "enviamos para todo brasil" -site:com.br')
 
-st.title("Prospecção LinkedIn (API Profissional)")
-st.caption("Google Search via Serper + Groq AI")
+st.markdown("<h2 style='color:white'>QUEM VAMOS <span style='color:#D2FF00'>DIGITALIZAR</span> HOJE?</h2>", unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns([6, 1, 1])
 with c1:
-    termo = st.text_input("Busca:", placeholder="Ex: indicação fornecedor brindes...")
+    termo = st.text_input("Comando de Busca:", placeholder="Ex: Advogados Trabalhistas em São Paulo...")
 with c2:
-    qtd = st.number_input("Qtd", 1, 20, 5)
+    qtd = st.number_input("Qtd", 1, 50, 5)
 with c3:
     st.write("##")
-    btn = st.button("Buscar")
+    btn = st.button("RASTREAR")
 
 if btn:
     if not (GROQ_API_KEY and SERPER_API_KEY):
-        st.error("Configure as chaves no Dokploy!")
+        st.error("⚠️ Configure as chaves de API no Dokploy (Environment)!")
     else:
-        with st.spinner("Buscando leads..."):
+        with st.spinner("🕵️ Rastreando oportunidades na rede..."):
             resultados = search_google_serper(termo, qtd)
             
             if not resultados:
-                st.warning("Nenhum resultado encontrado.")
+                st.warning("Nenhum sinal encontrado. Tente termos mais amplos.")
             else:
                 prog = st.progress(0)
                 for i, item in enumerate(resultados):
                     titulo = item.get('title', '')
                     link = item.get('link', '')
-                    texto = item.get('snippet', '')
+                    snippet = item.get('snippet', '')
                     
-                    analise = analyze_lead_groq(titulo, texto, GROQ_API_KEY)
+                    # Analisa com a nova inteligência Leanttro
+                    analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY)
                     
-                    cls = analise.get('classificacao', 'BAIXA')
-                    css = "status-baixa"
-                    ico = "⚪"
+                    score = analise.get('score', 0)
                     
-                    if cls == "ALTA": 
-                        css = "status-alta"
-                        ico = "🔥 OPORTUNIDADE"
-                    elif cls == "MEDIA":
-                        css = "status-media"
-                        ico = "⚠️ POSSÍVEL"
+                    # Define estilo baseado no Score
+                    css_class = "score-cold"
+                    icon = "❄️"
+                    if score >= 80:
+                        css_class = "score-hot"
+                        icon = "🔥 HOT LEAD"
+                    elif score >= 50:
+                        css_class = "score-warm"
+                        icon = "⚠️ MORNO"
                     
                     st.markdown(f"""
-                    <div class="lead-card {css}">
-                        <div style="display:flex; justify-content:space-between;">
-                            <strong style="color:white;">{ico}</strong>
-                            <span class="tag-produto">{analise.get('produto', '')}</span>
+                    <div class="lead-card {css_class}">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="color: #D2FF00; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}/100</span>
+                                <span class="tag-nicho">{analise.get('nicho_detectado', 'Geral')}</span>
+                            </div>
+                            <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VISITAR LINK 🔗</a>
                         </div>
-                        <div style="margin-top:8px;">
+                        
+                        <div style="margin-top:10px;">
                             <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
                         </div>
-                        <div style="color:#aaa; font-size:0.9em; margin:5px 0;">{texto}</div>
-                        <div class="ai-analysis">🤖 {analise.get('motivo', '')}</div>
+                        <div style="color:#888; font-size:12px; margin:5px 0;">{snippet[:200]}...</div>
+                        
+                        <div class="recommendation-box">
+                            <div class="rec-title">// DIAGNÓSTICO LEANTTRO:</div>
+                            <div style="color: #fff; font-weight:bold;">VENDER: {analise.get('produto_recomendado', 'N/A').upper()}</div>
+                            <div class="rec-text"><span style="color:#666">DOR:</span> {analise.get('dor_principal', '')}</div>
+                            <div class="rec-text" style="color:#D2FF00; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    time.sleep(0.1) 
+                    time.sleep(0.1) # Evita rate limit
                     prog.progress((i+1)/len(resultados))
