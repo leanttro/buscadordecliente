@@ -4,12 +4,11 @@ import os
 import json
 import time
 import concurrent.futures
-import pandas as pd # NOVO: Para o Excel
-import re # NOVO: Para achar e-mail
-import random # NOVO: Para o delay do minerador
-from io import BytesIO # NOVO: Para o download do Excel
+import pandas as pd
+import re
+import random
+from io import BytesIO
 from groq import Groq
-from googlesearch import search # Requer: pip install googlesearch-python
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LEANTTRO | Buscador de Oportunidades", layout="wide", page_icon="🚀")
@@ -180,7 +179,7 @@ SUGESTOES_STRATEGICAS = {
     ]
 }
 
-# --- FUNÇÕES AUXILIARES (NOVAS E ANTIGAS) ---
+# --- FUNÇÕES AUXILIARES ---
 
 def to_excel(df):
     """Converte DataFrame para bytes de Excel para download"""
@@ -228,7 +227,7 @@ def search_google_serper(query, period, num_results=10):
         return []
 
 def analyze_lead_groq(title, snippet, link, groq_key):
-    """Analisa o post e tenta extrair o autor e contexto (MANTIDO ORIGINAL)"""
+    """Analisa o post e tenta extrair o autor e contexto"""
     if not groq_key: 
         return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     
@@ -320,7 +319,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # SISTEMA DE ABAS (TABS) PARA ORGANIZAR
-tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR DE EMAILS (INSTAGRAM)"])
+tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR DE LEADS (SERPER API)"])
 
 # ==============================================================================
 # ABA 1: O SEU BUSCADOR ORIGINAL (IA + SERPER)
@@ -484,7 +483,7 @@ with tab1:
 
 
 # ==============================================================================
-# ABA 2: MINERADOR DE LEADS (NOVA FUNCIONALIDADE INTEGRADA)
+# ABA 2: MINERADOR DE LEADS (CORRIGIDO: AGORA USA SERPER API E NÃO O GOOGLESEARCH)
 # ==============================================================================
 with tab2:
     st.markdown("<h2 style='color:white'>MINERADOR DE <span style='color:#D2FF00'>LEADS B2B</span></h2>", unsafe_allow_html=True)
@@ -503,14 +502,16 @@ with tab2:
     termo_final = termo_custom if nicho_alvo == "Outro" else nicho_alvo
     
     st.write("##")
-    btn_mine = st.button("⛏️ INICIAR MINERAÇÃO", key="btn_mine")
+    btn_mine = st.button("⛏️ INICIAR MINERAÇÃO (VIA API)", key="btn_mine")
     
     if btn_mine:
         if not termo_final:
             st.error("Defina um nicho para buscar.")
+        elif not SERPER_API_KEY:
+            st.error("Configure sua SERPER API KEY na aba lateral.")
         else:
             leads_encontrados = []
-            status_box = st.status("⛏️ Minerando Google & Instagram...", expanded=True)
+            status_box = st.status("⛏️ Minerando Google (Via Serper API)...", expanded=True)
             
             # Termos de variação para melhorar a busca
             termos_busca = [termo_final]
@@ -521,42 +522,42 @@ with tab2:
             
             # Executa a busca
             for t in termos_busca:
-                # Query Dorking
+                # Query Dorking Otimizada
                 query_mine = f'site:instagram.com "{t}" "{cidade_alvo}" "@gmail.com" OR "@hotmail.com"'
                 status_box.write(f"🔎 Varrendo: {t} em {cidade_alvo}...")
                 
-                try:
-                    # Tenta buscar 15 resultados por termo (googlesearch)
-                    results = search(query_mine, num_results=15, advanced=True)
+                # USA A FUNÇÃO SERPER EXISTENTE (BLINDADA CONTRA BLOQUEIO 429)
+                results = search_google_serper(query_mine, period="", num_results=50) # Pede 50 resultados de uma vez
+                
+                if not results:
+                    status_box.warning(f"Sem resultados para {t}")
+                    continue
+
+                for res in results:
+                    # Extrai email da descrição ou titulo
+                    snippet_text = res.get('snippet', '')
+                    title_text = res.get('title', '')
                     
-                    for res in results:
-                        # Extrai email da descrição ou titulo
-                        email = extrair_email(res.description)
-                        if not email: email = extrair_email(res.title)
-                        
-                        if email:
-                            # Evita duplicatas na lista atual
-                            if not any(l['email'] == email for l in leads_encontrados):
-                                nome = limpar_nome_insta(res.title)
-                                leads_encontrados.append({
-                                    "nome": nome,
-                                    "email": email,
-                                    "empresa": f"{t} - {cidade_alvo}",
-                                    "categoria": "Buffet/Assessoria" if "Buffet" in t or "Assessoria" in t else "Outros",
-                                    "origem": "Instagram Miner",
-                                    "url": res.url
-                                })
-                                total_varredura += 1
-                                # Atualiza status levemente para dar feedback visual
-                                if total_varredura % 2 == 0:
-                                    status_box.write(f"✅ Encontrado: {email} ({nome})")
-                                
-                        # Delay aleatório para evitar bloqueio 429 do Google
-                        time.sleep(random.uniform(0.5, 1.5)) 
-                        
-                except Exception as e:
-                    status_box.warning(f"Google pausou a busca ou erro de conexão: {e}")
-                    break
+                    email = extrair_email(snippet_text)
+                    if not email: email = extrair_email(title_text)
+                    
+                    if email:
+                        # Evita duplicatas na lista atual
+                        if not any(l['email'] == email for l in leads_encontrados):
+                            nome = limpar_nome_insta(title_text)
+                            leads_encontrados.append({
+                                "nome": nome,
+                                "email": email,
+                                "empresa": f"{t} - {cidade_alvo}",
+                                "categoria": "Buffet/Assessoria" if "Buffet" in t or "Assessoria" in t else "Outros",
+                                "origem": "Instagram Miner",
+                                "url": res.get('link')
+                            })
+                            total_varredura += 1
+                            
+                status_box.write(f"✅ Leads coletados neste lote: {total_varredura}")
+                # Pequeno delay apenas por segurança, mas Serper aguenta bem
+                time.sleep(0.5)
             
             status_box.update(label=f"Mineração Concluída! {len(leads_encontrados)} leads novos.", state="complete")
             
