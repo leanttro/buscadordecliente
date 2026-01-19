@@ -7,7 +7,7 @@ import concurrent.futures
 from groq import Groq
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="LEANTTRO HUNTER", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="LEANTTRO | Buscador de Oportunidades", layout="wide", page_icon="🚀")
 
 # --- ESTILO VISUAL (IDENTIDADE LEANTTRO NEON) ---
 st.markdown("""
@@ -31,7 +31,6 @@ st.markdown("""
     }
 
     /* --- CORREÇÃO DE VISIBILIDADE: CAIXAS DE CÓDIGO (st.code) --- */
-    /* Força o fundo das caixas de código a ser escuro e o texto neon */
     .stCode pre, .stCode code {
         background-color: #111 !important;
         color: #D2FF00 !important; /* Verde Neon */
@@ -113,6 +112,48 @@ st.markdown("""
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 
+# --- ESTRATÉGIA DE SUGESTÕES (BASEADA NO LEANTTRO.COM E CURRÍCULO) ---
+SUGESTOES_STRATEGICAS = {
+    "Sites de Freelance (Workana/99)": [
+        "preciso programador python", # Venda Skill Técnica
+        "criar site de vendas", # Venda Produto Loja Virtual
+        "dashboard power bi", # Venda Skill Dados
+        "integrar api sistema", # Venda Skill Backend
+        "automação n8n", # Venda Skill Automação
+        "analista de dados gcp" # Venda Skill Engenharia
+    ],
+    "LinkedIn (Postagens/Feed)": [
+        "preciso de desenvolvedor python",
+        "busco engenheiro de dados",
+        "procuro gestor de tráfego" , # (Pode vender LP para os clientes deles)
+        "indicação criação de site",
+        "sistema lento ajuda", # Oportunidade de Refatoração/Consultoria
+        "vaga pj desenvolvedor backend"
+    ],
+    "LinkedIn (Empresas)": [
+        "Logística e Transportes", # Seu background na Elo Brindes
+        "Agência de Marketing", # Parceria White Label
+        "Consultoria de Dados",
+        "E-commerce de Autopeças", # Seu nicho de portfólio
+        "Assessoria de Eventos" # Para vender o sistema de casamentos
+    ],
+    "Instagram/Negócios (Estratégia Maps)": [
+        "auto peças", # Venda: E-commerce Leanttro
+        "assessoria de casamento", # Venda: Site de Casamento/Lista
+        "buffet infantil", # Venda: Site de Festas
+        "loja de roupas feminina", # Venda: Loja Virtual
+        "advocacia", # Venda: Site Institucional
+        "clinica de estética" # Venda: Site Institucional + Agendamento
+    ],
+    "Google (Geral)": [
+        "contratar criação de site",
+        "desenvolvedor python freelancer",
+        "empresa de engenharia de dados",
+        "orçamento loja virtual",
+        "preciso de um cto"
+    ]
+}
+
 # --- FUNÇÕES ---
 
 def search_google_serper(query, period, num_results=10):
@@ -153,21 +194,27 @@ def analyze_lead_groq(title, snippet, link, groq_key):
     system_prompt = f"""
     ATUE COMO: Head de Vendas da 'Leanttro Digital'.
     
-    CONTEXTO: O usuário busca oportunidades de FREELANCE, SERVIÇOS DE DADOS ou VAGAS EM TI.
-    Perfil: Dev Full Stack (Python/Flask), Eng. de Dados (GCP/Pandas), Power BI, Automação.
+    SEUS PRODUTOS (LEANTTRO.COM):
+    1. CRIAÇÃO DE SITES: Institucionais, Landing Pages (Foco em conversão).
+    2. E-COMMERCE: Lojas virtuais completas (Foco em Auto Peças e Varejo).
+    3. FESTAS/EVENTOS: Sites para casamento, listas de presentes, RSVP.
+    4. SOFTWARE CUSTOM: Sistemas Python, Dashboards Power BI, Engenharia de Dados (GCP/SQL).
+    
+    SEU PERFIL TÉCNICO (LEANDRO):
+    Dev Full Stack (Python/Flask), Eng. de Dados (GCP, BigQuery, ETL), Automação (N8N).
     
     TAREFAS:
     1. Identifique o NOME DA PESSOA ou NOME DA EMPRESA.
-    2. Analise se é venda (freela), vaga ou oportunidade de negócio.
-    3. Defina um SCORE (0-100).
+    2. Analise se é LEAD DE VENDA (quer site/sistema) ou VAGA/FREELA (quer dev).
+    3. Defina um SCORE (0-100) baseado no fit com o portfólio Leanttro.
     
     SAÍDA JSON OBRIGATÓRIA:
     {{
         "autor": "Nome (ou Empresa)",
         "score": (0-100),
         "resumo_post": "Resumo em 10 palavras",
-        "produto_recomendado": "Serviço Leanttro Sugerido",
-        "argumento_venda": "Dica de abordagem."
+        "produto_recomendado": "Qual serviço Leanttro oferecer?",
+        "argumento_venda": "Dica curta de abordagem técnica ou comercial."
     }}
     """
     
@@ -206,8 +253,12 @@ def process_single_item(item):
 
 # --- INTERFACE ---
 
+# 1. Definição do Estado da Seleção (Para pegar as dicas corretas)
+# Precisamos definir a selectbox antes de usar na sidebar para as dicas serem reativas
+# Mas no Streamlit a ordem visual importa. Usaremos um placeholder ou lógica direta.
+
 with st.sidebar:
-    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Hunter v2.0</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Buscador de Oportunidades</span></h1>", unsafe_allow_html=True)
     st.divider()
     
     if GROQ_API_KEY: st.success("🟢 IA Conectada") 
@@ -218,22 +269,17 @@ with st.sidebar:
 
     st.divider()
     
+    # Placeholder para as dicas (será preenchido após o usuário selecionar a origem na área principal,
+    # mas como Streamlit roda o script todo, vamos definir a origem logo abaixo e usar aqui)
+    
     st.markdown("### 🎯 Modo de Caça")
     st.markdown("""
     <div class="custom-info-box">
-        <b>Novas Fontes:</b><br>
-        - <b>Workana/99:</b> Abre o link direto na plataforma (requer login).<br>
-        - <b>Instagram/Maps:</b> Busca negócios locais com e-mail na bio (Gmail).
+        <b>Estratégia Leanttro:</b><br>
+        O sistema analisa se o lead precisa de <b>Sites/E-commerce</b> (Produto) ou <b>Dev Python/Dados</b> (Serviço).
     </div>
     """, unsafe_allow_html=True)
 
-    with st.expander("💡 Dicas de Busca", expanded=True):
-        st.caption("Workana/99:")
-        st.code("sistema python")
-        st.code("integrar api")
-        st.caption("Instagram/Maps:")
-        st.code("auto peças")
-        st.code("assessoria de casamento")
 
 st.markdown("<h2 style='color:white'>O QUE VAMOS <span style='color:#D2FF00'>CAÇAR</span> HOJE?</h2>", unsafe_allow_html=True)
 
@@ -241,15 +287,17 @@ st.markdown("<h2 style='color:white'>O QUE VAMOS <span style='color:#D2FF00'>CA�
 c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
 
 with c1:
-    origem = st.selectbox("Onde buscar?", [
-        "LinkedIn (Postagens/Feed)", 
-        "LinkedIn (Empresas)",
-        "Sites de Freelance (Workana/99)",
-        "Instagram/Negócios (Estratégia Maps)",
-        "Google (Geral)"
-    ])
+    origem = st.selectbox("Onde buscar?", list(SUGESTOES_STRATEGICAS.keys()))
+
+# --- VOLTA PARA A SIDEBAR PARA RENDERIZAR AS DICAS DINÂMICAS ---
+with st.sidebar:
+    st.markdown("### 💡 Sugestões para esta Fonte")
+    dicas_atuais = SUGESTOES_STRATEGICAS.get(origem, [])
+    for dica in dicas_atuais:
+        st.code(dica, language="text")
+
 with c2:
-    termo = st.text_input("Termo ou Nicho:", placeholder="Ex: dev python, loja de carros...")
+    termo = st.text_input("Termo ou Nicho:", placeholder="Copie uma sugestão ao lado...")
 with c3:
     tempo = st.selectbox("Período:", [
         "Últimas 24 Horas",
