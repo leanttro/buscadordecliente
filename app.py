@@ -3,6 +3,7 @@ import requests
 import os
 import json
 import time
+import concurrent.futures
 from groq import Groq
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
@@ -20,7 +21,6 @@ st.markdown("""
         background-color: #2e2e2e !important;
     }
     
-    /* Forçar TODOS os textos da Sidebar para Branco */
     section[data-testid="stSidebar"] h1, 
     section[data-testid="stSidebar"] h2, 
     section[data-testid="stSidebar"] h3, 
@@ -36,12 +36,12 @@ st.markdown("""
         font-size: 14px !important;
     }
     
-    /* Caixa de Informação Customizada (Texto Branco) */
+    /* Caixa de Informação Customizada */
     .custom-info-box {
         background-color: #1a1a1a;
         border-left: 4px solid #D2FF00;
         padding: 15px;
-        color: #ffffff !important; /* Força branco */
+        color: #ffffff !important;
         font-size: 14px;
         margin-bottom: 20px;
         border-radius: 4px;
@@ -62,7 +62,7 @@ st.markdown("""
         transform: skewX(-5deg);
     }
     
-    /* Inputs (Caixas de texto) */
+    /* Inputs */
     .stTextInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stNumberInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stSelectbox > div > div { background-color: #111; color: white; border: 1px solid #333; }
@@ -76,9 +76,9 @@ st.markdown("""
     .lead-card:hover { border-color: #D2FF00; }
     
     /* Scores */
-    .score-hot { border-left: 4px solid #D2FF00; } /* Quente */
-    .score-warm { border-left: 4px solid #fff; }    /* Morno */
-    .score-cold { border-left: 4px solid #333; }    /* Frio */
+    .score-hot { border-left: 4px solid #D2FF00; } 
+    .score-warm { border-left: 4px solid #fff; }    
+    .score-cold { border-left: 4px solid #333; }    
 
     .lead-title { font-family: 'Chakra Petch', sans-serif; font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 5px; text-decoration: none; display: block; }
     .lead-title:hover { color: #D2FF00; }
@@ -108,25 +108,17 @@ SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 # --- FUNÇÕES ---
 
 def search_google_serper(query, period, num_results=10):
-    """
-    Busca no Google/Serper com filtro de tempo (tbs).
-    period: 'qdr:d' (24h), 'qdr:w' (semana), 'qdr:m' (mês) ou '' (qualquer data)
-    """
     url = "https://google.serper.dev/search"
-    
     payload_dict = {
         "q": query,
         "num": num_results,
         "gl": "br", 
         "hl": "pt-br"
     }
-    
-    # Se tiver filtro de tempo, adiciona ao payload
     if period:
         payload_dict["tbs"] = period
 
     payload = json.dumps(payload_dict)
-    
     headers = {
         'X-API-KEY': SERPER_API_KEY,
         'Content-Type': 'application/json'
@@ -144,7 +136,7 @@ def search_google_serper(query, period, num_results=10):
         return []
 
 def analyze_lead_groq(title, snippet, link, groq_key):
-    """Analisa o post e tenta extrair o autor"""
+    """Analisa o post e tenta extrair o autor e contexto"""
     if not groq_key: 
         return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     
@@ -153,21 +145,21 @@ def analyze_lead_groq(title, snippet, link, groq_key):
     system_prompt = f"""
     ATUE COMO: Head de Vendas da 'Leanttro Digital'.
     
-    CONTEXTO: O usuário busca oportunidades de FREELANCE, SERVIÇOS DE DADOS ou VAGAS DE EMPREGO em TI.
-    O perfil do usuário é: Desenvolvedor Full Stack (Python/Flask), Engenheiro de Dados (ETL/Pandas/GCP), Power BI e Automação (N8N).
+    CONTEXTO: O usuário busca oportunidades de FREELANCE, SERVIÇOS DE DADOS ou VAGAS EM TI.
+    Perfil: Dev Full Stack (Python/Flask), Eng. de Dados (GCP/Pandas), Power BI, Automação.
     
     TAREFAS:
-    1. Tente identificar o NOME DA PESSOA que fez o post.
-    2. Analise se é uma oportunidade de venda (freela) ou vaga de emprego (CLT/PJ).
-    3. Defina um SCORE (0-100) baseado na relevância para o perfil acima.
+    1. Identifique o NOME DA PESSOA ou NOME DA EMPRESA.
+    2. Analise se é venda (freela), vaga ou oportunidade de negócio.
+    3. Defina um SCORE (0-100).
     
     SAÍDA JSON OBRIGATÓRIA:
     {{
-        "autor": "Nome da Pessoa (ou Empresa)",
+        "autor": "Nome (ou Empresa)",
         "score": (0-100),
-        "resumo_post": "O que estão buscando? (max 10 palavras)",
-        "produto_recomendado": "Serviço Leanttro ou Aplicação para Vaga",
-        "argumento_venda": "Dica rápida de abordagem para este lead."
+        "resumo_post": "Resumo em 10 palavras",
+        "produto_recomendado": "Serviço Leanttro Sugerido",
+        "argumento_venda": "Dica de abordagem."
     }}
     """
     
@@ -183,12 +175,31 @@ def analyze_lead_groq(title, snippet, link, groq_key):
         )
         return json.loads(completion.choices[0].message.content)
     except Exception as e:
-        return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro IA", "argumento_venda": str(e)}
+        return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro IA", "argumento_venda": "Falha na análise"}
+
+# Função wrapper para rodar em paralelo
+def process_single_item(item):
+    titulo = item.get('title', '')
+    link = item.get('link', '')
+    snippet = item.get('snippet', '')
+    data_pub = item.get('date', 'Data n/d')
+    
+    # Chama a IA
+    analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY)
+    
+    return {
+        "item": item,
+        "analise": analise,
+        "titulo": titulo,
+        "link": link,
+        "snippet": snippet,
+        "data_pub": data_pub
+    }
 
 # --- INTERFACE ---
 
 with st.sidebar:
-    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Buscador de Clientes</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color: #fff; text-align: center; font-style: italic;'>LEAN<span style='color:#D2FF00'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Hunter v2.0</span></h1>", unsafe_allow_html=True)
     st.divider()
     
     if GROQ_API_KEY: st.success("🟢 IA Conectada") 
@@ -199,43 +210,22 @@ with st.sidebar:
 
     st.divider()
     
-    # Título Modo Postagem (Branco via CSS)
-    st.markdown("### 🎯 Modo Postagem")
-    
-    # Caixa customizada para texto branco e legível
+    st.markdown("### 🎯 Modo de Caça")
     st.markdown("""
     <div class="custom-info-box">
-        A opção 'LinkedIn (Postagens)' busca dentro do feed.
-        Use termos para achar quem está precisando dos seus serviços ou contratando.
+        <b>Novas Fontes:</b><br>
+        - <b>Workana/99:</b> Abre o link direto na plataforma (requer login).<br>
+        - <b>Instagram/Maps:</b> Busca negócios locais com e-mail na bio (Gmail).
     </div>
     """, unsafe_allow_html=True)
-    
-    # --- SUGESTÕES DE BUSCA (ATUALIZADO PARA SEU PERFIL) ---
-    st.markdown("### 💡 Sugestões de Busca")
-    
-    with st.expander("🐍 Python & Desenvolvimento"):
-        st.code("preciso de dev python")
-        st.code("busco programador flask")
-        st.code("automação com n8n")
-        st.code("freelance backend python")
 
-    with st.expander("📊 Dados & Power BI"):
-        st.code("preciso de dashboard power bi")
-        st.code("analista de dados freelance")
-        st.code("consultoria google cloud bigquery")
-        st.code("tratamento de dados pandas")
-
-    with st.expander("💻 Vagas & Oportunidades"):
-        st.code("vaga desenvolvedor fullstack")
-        st.code("contratando engenheiro de dados")
-        st.code("oportunidade dev junior python")
-        st.code("vaga power bi remoto")
-        
-    with st.expander("🚀 Landing Pages & Web"):
-        st.code("preciso de site urgente")
-        st.code("criar landing page alta conversão")
-        st.code("ajuda html css site")
-        st.code("busco web designer freela")
+    with st.expander("💡 Dicas de Busca"):
+        st.caption("Workana/99:")
+        st.code("sistema python")
+        st.code("integrar api")
+        st.caption("Instagram/Maps:")
+        st.code("auto peças")
+        st.code("assessoria de casamento")
 
 st.markdown("<h2 style='color:white'>O QUE VAMOS <span style='color:#D2FF00'>CAÇAR</span> HOJE?</h2>", unsafe_allow_html=True)
 
@@ -245,28 +235,29 @@ c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
 with c1:
     origem = st.selectbox("Onde buscar?", [
         "LinkedIn (Postagens/Feed)", 
-        "LinkedIn (Empresas)", 
-        "Google (Geral)",
-        "Instagram (Perfis)"
+        "LinkedIn (Empresas)",
+        "Sites de Freelance (Workana/99)",
+        "Instagram/Negócios (Estratégia Maps)",
+        "Google (Geral)"
     ])
 with c2:
-    termo = st.text_input("Termo de Busca:", placeholder="Ex: contratando dev python, preciso de dashboard...")
+    termo = st.text_input("Termo ou Nicho:", placeholder="Ex: dev python, loja de carros...")
 with c3:
-    tempo = st.selectbox("Período (Recência):", [
-        "Últimas 24 Horas (qdr:d)",
-        "Última Semana (qdr:w)",
-        "Último Mês (qdr:m)",
+    tempo = st.selectbox("Período:", [
+        "Últimas 24 Horas",
+        "Última Semana",
+        "Último Mês",
         "Qualquer data"
     ])
 with c4:
-    qtd = st.number_input("Qtd", 1, 50, 5)
+    qtd = st.number_input("Qtd", 1, 50, 8)
 
 st.write("##")
 btn = st.button("RASTREAR OPORTUNIDADES")
 
 if btn and termo:
     if not (GROQ_API_KEY and SERPER_API_KEY):
-        st.error("⚠️ Configure as chaves de API no Dokploy (Environment)!")
+        st.error("⚠️ Configure as chaves de API no Dokploy!")
     else:
         # TRATAMENTO DO FILTRO DE TEMPO
         periodo_api = ""
@@ -274,51 +265,78 @@ if btn and termo:
         elif "Semana" in tempo: periodo_api = "qdr:w"
         elif "Mês" in tempo: periodo_api = "qdr:m"
 
-        # LÓGICA DE FILTRO DE REDES SOCIAIS
+        # CONSTRUÇÃO DA QUERY INTELIGENTE
         query_final = termo
         
         if origem == "LinkedIn (Empresas)":
             query_final = f'site:linkedin.com/company "{termo}"'
         elif origem == "LinkedIn (Postagens/Feed)":
-            # Busca focada em POSTS e FEED
             query_final = f'site:linkedin.com/posts "{termo}"'
-            
-        elif origem == "Instagram (Perfis)":
-            query_final = f'site:instagram.com "{termo}"'
+        elif origem == "Sites de Freelance (Workana/99)":
+            # Busca nas duas maiores plataformas ao mesmo tempo
+            query_final = f'(site:workana.com OR site:99freelas.com.br) "{termo}"'
+        elif origem == "Instagram/Negócios (Estratégia Maps)":
+            # Estratégia para achar empresas com contato
+            query_final = f'site:instagram.com "{termo}" "gmail.com"'
 
-        st.caption(f"🔎 Buscando por: `{query_final}` | Filtro: `{tempo}`")
+        st.caption(f"🔎 Buscando: `{query_final}` | Fonte: `{origem}`")
 
-        with st.spinner("🕵️ Minando dados recentes..."):
-            resultados = search_google_serper(query_final, periodo_api, qtd)
+        # BUSCA + PROCESSAMENTO PARALELO
+        resultados = search_google_serper(query_final, periodo_api, qtd)
+        
+        if not resultados:
+            st.warning("Nenhum sinal encontrado. Tente termos mais amplos.")
+        else:
+            bar_text = st.empty()
+            prog = st.progress(0)
             
-            if not resultados:
-                st.warning("Nenhum sinal encontrado. Tente aumentar o período de tempo.")
-            else:
-                prog = st.progress(0)
-                for i, item in enumerate(resultados):
-                    titulo = item.get('title', '')
-                    link = item.get('link', '')
-                    snippet = item.get('snippet', '')
-                    data_pub = item.get('date', 'Data não ident.') 
+            # Lista para guardar os resultados processados
+            processed_results = []
+            
+            bar_text.text("🕵️ IA analisando leads em paralelo...")
+            
+            # Usando ThreadPoolExecutor para rodar várias análises ao mesmo tempo
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                # Submete todas as tarefas
+                future_to_item = {executor.submit(process_single_item, item): item for item in resultados}
+                
+                completed = 0
+                for future in concurrent.futures.as_completed(future_to_item):
+                    try:
+                        data = future.result()
+                        processed_results.append(data)
+                    except Exception as exc:
+                        st.error(f"Erro no processamento: {exc}")
                     
-                    # Analisa com a nova inteligência Leanttro
-                    analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY)
-                    
-                    score = analise.get('score', 0)
-                    autor = analise.get('autor', 'Desconhecido')
-                    
-                    # Define estilo baseado no Score
-                    css_class = "score-cold"
-                    icon = "❄️"
-                    if score >= 80:
-                        css_class = "score-hot"
-                        icon = "🔥 HOT"
-                    elif score >= 50:
-                        css_class = "score-warm"
-                        icon = "⚠️ MORNO"
-                    
-                    # RENDERIZAÇÃO CORRIGIDA - HTML SEM INDENTAÇÃO
-                    card_html = f"""
+                    completed += 1
+                    prog.progress(completed / len(resultados))
+
+            bar_text.empty() # Limpa o texto de carregamento
+
+            # RENDERIZAÇÃO DOS CARDS (Ordenados por Score se quiser, mas aqui segue a ordem de retorno)
+            # Dica: Ordenar por Score decrescente fica mais TOP
+            processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
+
+            for p in processed_results:
+                analise = p['analise']
+                score = analise.get('score', 0)
+                autor = analise.get('autor', 'Desconhecido')
+                link = p['link']
+                titulo = p['titulo']
+                snippet = p['snippet']
+                data_pub = p['data_pub']
+
+                # Define estilo
+                css_class = "score-cold"
+                icon = "❄️"
+                if score >= 80:
+                    css_class = "score-hot"
+                    icon = "🔥 HOT"
+                elif score >= 50:
+                    css_class = "score-warm"
+                    icon = "⚠️ MORNO"
+
+                card_html = f"""
 <div class="lead-card {css_class}">
 <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
@@ -341,7 +359,4 @@ if btn and termo:
 </div>
 </div>
 """
-                    st.markdown(card_html, unsafe_allow_html=True)
-                    
-                    time.sleep(0.1) 
-                    prog.progress((i+1)/len(resultados))
+                st.markdown(card_html, unsafe_allow_html=True)
