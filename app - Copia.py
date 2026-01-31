@@ -58,7 +58,7 @@ st.markdown("""
     }
 
     /* --- TEXTOS/LABELS DOS INPUTS (BRANCO) --- */
-    .stTextInput label, .stSelectbox label, .stNumberInput label, .stTextArea label {
+    .stTextInput label, .stSelectbox label, .stNumberInput label {
         color: #ffffff !important;
         font-size: 14px !important;
     }
@@ -93,7 +93,6 @@ st.markdown("""
     .stTextInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stNumberInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stSelectbox > div > div { background-color: #111; color: white; border: 1px solid #333; }
-    .stTextArea > div > div > textarea { color: #fff; background-color: #111; border: 1px solid #333; }
 
     /* Card do Lead */
     .lead-card {
@@ -193,25 +192,6 @@ def extrair_email(texto):
     """Extrai e-mail de um texto usando Regex"""
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', str(texto))
     return match.group(0) if match else None
-
-def extrair_whatsapp(texto):
-    """
-    Regex agressivo para pegar celulares do Brasil (com ou sem 55, com ou sem parênteses).
-    Foca em números que começam com 9 (celulares).
-    """
-    # Padrões: (11) 99999-9999 | 11 999999999 | 55 11 9...
-    padrao = r'(?:(?:\+|00)?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\-?(\d{4}))'
-    match = re.search(padrao, str(texto))
-    
-    if match:
-        ddd, parte1, parte2 = match.groups()
-        # Se o DDD não vier, assume 11 (pode-se melhorar para pegar da cidade alvo futuramente)
-        if not ddd: ddd = "11" 
-        
-        # Formata para o padrão limpo do WhatsApp: 5511999999999
-        numero_limpo = f"55{ddd}{parte1}{parte2}".replace(" ", "").replace("-", "")
-        return numero_limpo
-    return None
 
 def limpar_nome_insta(titulo):
     """Limpa o título do Instagram/Social"""
@@ -342,7 +322,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # SISTEMA DE ABAS (TABS) PARA ORGANIZAR
-tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR SNIPER (B2B + WHATSAPP)"])
+tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR MULTI-FONTE (B2B)"])
 
 # ==============================================================================
 # ABA 1: O SEU BUSCADOR ORIGINAL (IA + SERPER)
@@ -507,136 +487,127 @@ with tab1:
 
 
 # ==============================================================================
-# ABA 2: MINERADOR SNIPER (B2B + WHATSAPP) - ATUALIZADO
+# ABA 2: MINERADOR MULTI-FONTE (ATUALIZADO: LINKEDIN + FACEBOOK + WEB)
 # ==============================================================================
 with tab2:
-    st.markdown("<h2 style='color:white'>MINERADOR <span style='color:#D2FF00'>LOCAL (BAIRRO A BAIRRO)</span></h2>", unsafe_allow_html=True)
-    st.caption("Focado em extrair WHATSAPP e gerar VOLUME para disparo.")
+    st.markdown("<h2 style='color:white'>MINERADOR <span style='color:#D2FF00'>MULTI-FONTE</span></h2>", unsafe_allow_html=True)
+    st.caption("Agora buscando em: Instagram, LinkedIn, Facebook e Web Geral (Sites).")
+
+    col_m1, col_m2, col_m3 = st.columns(3)
+    with col_m1: 
+        cidade_alvo = st.text_input("Cidade Alvo:", value="São Paulo")
+    with col_m2: 
+        nicho_alvo = st.selectbox("Nicho:", ["Buffet Casamento", "Assessoria de Eventos", "Espaço de Eventos", "Outro"])
+    with col_m3: 
+        termo_custom = ""
+        if nicho_alvo == "Outro":
+            termo_custom = st.text_input("Digite o Nicho:", placeholder="Ex: Clínica Estética")
     
-    c1, c2 = st.columns(2)
-    with c1:
-        nicho = st.text_input("Nicho:", value="Advocacia Trabalhista")
-    with c2:
-        cidade = st.text_input("Cidade Base:", value="São Paulo")
-
-    # AQUI ESTÁ O TRUQUE DO VOLUME:
-    bairros_txt = st.text_area("Lista de Bairros (Cole aqui separados por vírgula):", 
-                               value="Centro, Pinheiros, Vila Madalena, Moema, Tatuapé, Mooca, Itaquera, Santana, Barra Funda, Lapa, Morumbi",
-                               height=100)
+    termo_final = termo_custom if nicho_alvo == "Outro" else nicho_alvo
     
-    # Session state para armazenar os leads encontrados
-    if "leads_zap" not in st.session_state:
-        st.session_state["leads_zap"] = []
-
-    c_btn1, c_btn2 = st.columns([1, 1])
-
-    with c_btn1:
-        if st.button("🚀 INICIAR VARREDURA POR ZONA", key="btn_zap_mine"):
-            if not SERPER_API_KEY:
-                st.error("Cadê a API Key do Serper, dev?")
-            else:
-                lista_bairros = [b.strip() for b in bairros_txt.split(',') if b.strip()]
-                novos_leads = []
+    st.write("##")
+    btn_mine = st.button("⛏️ MINERAR TUDO (AMPLIADO)", key="btn_mine")
+    
+    if btn_mine:
+        if not termo_final:
+            st.error("Defina um nicho para buscar.")
+        elif not SERPER_API_KEY:
+            st.error("Configure sua SERPER API KEY na aba lateral.")
+        else:
+            leads_encontrados = []
+            status_box = st.status("⛏️ Preparando varredura multi-plataforma...", expanded=True)
+            
+            # 1. Definição dos Termos
+            termos_busca = [termo_final]
+            if "Buffet" in termo_final: termos_busca.append("Espaço para festas")
+            if "Assessoria" in termo_final: termos_busca.append("Cerimonialista")
+            
+            total_varredura = 0
+            
+            # 2. Executa a busca em LOOP
+            for t in termos_busca:
                 
-                progress_text = st.empty()
-                bar = st.progress(0)
-                
-                for i, bairro in enumerate(lista_bairros):
-                    progress_text.text(f"📡 Escaneando bairro: {bairro.upper()}...")
+                # --- NOVAS QUERIES AMPLIADAS ---
+                expanded_queries = [
+                    # INSTAGRAM (Mantido)
+                    f'site:instagram.com "{t}" "{cidade_alvo}" email',
+                    f'site:instagram.com "{t}" "{cidade_alvo}" contato',
                     
-                    # Queries focadas em achar NÚMERO DE WHATSAPP no Instagram/Facebook/Web
-                    queries = [
-                        f'site:instagram.com "{nicho}" "{bairro}" "{cidade}" "whatsapp"',
-                        f'site:facebook.com "{nicho}" "{bairro}" "{cidade}" "fale conosco"',
-                        f'"{nicho}" "{bairro}" "{cidade}" "whatsapp: 55"' 
-                    ]
+                    # LINKEDIN (Empresas e Perfis)
+                    f'site:linkedin.com/company "{t}" "{cidade_alvo}" email',
+                    f'site:linkedin.com/in "{t}" "{cidade_alvo}" "@gmail.com"',
                     
-                    for q in queries:
-                        # Pede 20 resultados por query por bairro
-                        resultados = search_google_serper(q, period="", num_results=20)
+                    # FACEBOOK (Páginas de negócio geralmente tem email na bio)
+                    f'site:facebook.com "{t}" "{cidade_alvo}" gmail.com',
+                    
+                    # WEB GERAL (Sites das empresas)
+                    f'"{t}" "{cidade_alvo}" "@gmail.com" OR "@hotmail.com" OR "contato@"'
+                ]
+
+                for query_mine in expanded_queries:
+                    
+                    # Identificar a fonte visualmente para o log
+                    fonte_detectada = "WEB"
+                    if "instagram" in query_mine: fonte_detectada = "INSTA"
+                    elif "linkedin" in query_mine: fonte_detectada = "LINKEDIN"
+                    elif "facebook" in query_mine: fonte_detectada = "FACEBOOK"
+
+                    status_box.write(f"🔎 [{fonte_detectada}] Buscando: {t}...")
+                    
+                    results = search_google_serper(query_mine, period="", num_results=20) 
+                    
+                    if not results:
+                        continue
+
+                    for res in results:
+                        snippet_text = res.get('snippet', '')
+                        title_text = res.get('title', '')
+                        link_url = res.get('link', '')
                         
-                        for r in resultados:
-                            texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
-                            
-                            # Extrai ZAP e EMAIL
-                            zap = extrair_whatsapp(texto_completo)
-                            email = extrair_email(texto_completo)
-                            
-                            # Só salva se achar ZAP
-                            if zap:
-                                # Verifica duplicidade na lista global e na atual
-                                exists_global = any(l['Whatsapp'] == zap for l in st.session_state["leads_zap"])
-                                exists_local = any(l['Whatsapp'] == zap for l in novos_leads)
+                        email = extrair_email(snippet_text)
+                        if not email: email = extrair_email(title_text)
+                        
+                        if email:
+                            # Evita duplicatas na lista atual
+                            if not any(l['email'] == email for l in leads_encontrados):
+                                nome = limpar_nome_insta(title_text)
                                 
-                                if not exists_global and not exists_local:
-                                    novos_leads.append({
-                                        "Empresa": limpar_nome_insta(r.get('title', '')),
-                                        "Nicho": nicho,
-                                        "Bairro": bairro,
-                                        "Whatsapp": zap,
-                                        "Email": email if email else "N/D",
-                                        "Link": r.get('link'),
-                                        "Snippet": r.get('snippet')[:100]
-                                    })
-                    
-                    # Atualiza barra de progresso
-                    bar.progress((i + 1) / len(lista_bairros))
-                    time.sleep(0.5) # Evitar rate limit agressivo
-                    
-                progress_text.text("✅ Varredura Concluída!")
-                
-                if novos_leads:
-                    st.session_state["leads_zap"].extend(novos_leads)
-                    st.success(f"🔥 {len(novos_leads)} NOVOS LEADS ENCONTRADOS!")
-                else:
-                    st.warning("Nada encontrado nestes bairros. Tente termos mais genéricos.")
+                                # Tenta limpar o nome baseado na fonte
+                                if "linkedin" in link_url:
+                                    origem_lead = "LinkedIn"
+                                elif "facebook" in link_url:
+                                    origem_lead = "Facebook"
+                                elif "instagram" in link_url:
+                                    origem_lead = "Instagram"
+                                else:
+                                    origem_lead = "Site/Web"
 
-    # MOSTRAR RESULTADOS E BOTÕES DE AÇÃO
-    if st.session_state["leads_zap"]:
-        df = pd.DataFrame(st.session_state["leads_zap"])
-        st.write("---")
-        st.markdown(f"### 📋 LISTA DE ATAQUE: {len(df)} LEADS")
-        st.dataframe(df, use_container_width=True)
-        
-        c_down, c_fire = st.columns(2)
-        
-        with c_down:
-            # Botão CSV/Excel
-            st.download_button("📥 BAIXAR BASE (EXCEL)", data=to_excel(df), file_name="leads_zap_bairros.xlsx")
-
-        with c_fire:
-            # BOTÃO DE DISPARO REAL
-            if st.button("🔥 DISPARAR CAMPANHA (VIA NODE.JS LOCAL)"):
-                st.info("Iniciando disparos para o localhost:3000...")
-                sucessos = 0
-                erros = 0
+                                leads_encontrados.append({
+                                    "nome": nome,
+                                    "email": email,
+                                    "empresa": f"{t} - {cidade_alvo}",
+                                    "origem": origem_lead,
+                                    "url": link_url
+                                })
+                                total_varredura += 1
+                                
+                    time.sleep(0.3) # Delay anti-spam
+            
+            status_box.update(label=f"Sucesso! {len(leads_encontrados)} leads encontrados em várias fontes.", state="complete")
+            
+            if leads_encontrados:
+                df_mine = pd.DataFrame(leads_encontrados)
+                st.markdown("### 📋 Resultados Encontrados")
+                st.dataframe(df_mine, use_container_width=True)
                 
-                msg_bar = st.progress(0)
-                
-                for idx, row in df.iterrows():
-                    try:
-                        # Monta a mensagem personalizada
-                        primeiro_nome = row['Empresa'].split(' ')[0]
-                        mensagem_fria = f"Opa {primeiro_nome}, tudo bem? Vi que vocês atendem no {row['Bairro']}. Tentei achar o site de vcs no Google e não consegui, tá fora do ar?"
-                        
-                        payload = {
-                            "number": row['Whatsapp'], 
-                            "message": mensagem_fria
-                        }
-                        
-                        # POST para o seu index.js (que deve estar rodando express)
-                        res = requests.post("http://localhost:3000/disparar", json=payload, timeout=5)
-                        
-                        if res.status_code == 200:
-                            sucessos += 1
-                        else:
-                            erros += 1
-                            
-                    except Exception as e:
-                        print(f"Erro ao enviar para {row['Whatsapp']}: {e}")
-                        erros += 1
-                    
-                    msg_bar.progress((idx + 1) / len(df))
-                    time.sleep(10) # Delay de segurança (10s entre msgs) para não levar ban no chip
-                
-                st.success(f"Fim do disparo! ✅ Enviados: {sucessos} | ❌ Falhas: {erros}")
+                # BOTÃO EXCEL
+                st.download_button(
+                    label="📥 BAIXAR LISTA COMPLETA (EXCEL)",
+                    data=to_excel(df_mine),
+                    file_name=f"leads_multi_{cidade_alvo}_{termo_final}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_mine"
+                )
+                st.success("👉 Baixe o Excel e use onde quiser!")
+            else:
+                st.warning("Nenhum e-mail público encontrado. Tente mudar a cidade ou o termo.")
