@@ -15,6 +15,5 @@ COPY . .
 # Porta do Streamlit
 EXPOSE 8501
 
-# Roda na subpasta /prospect conforme solicitado
-# FIX: Adicionado --server.fileWatcherType=none para resolver o limite de inotify no Docker
+# FIX: Adicionado --server.fileWatcherType=none para matar o erro de inotify instance limit
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.baseUrlPath=/prospect", "--server.fileWatcherType=none", "--browser.gatherUsageStats=false"]
