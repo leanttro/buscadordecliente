@@ -627,8 +627,8 @@ with tab2:
                             "message": mensagem_fria
                         }
                         
-                        # FIX SSL: verify=False ignora o erro de certificado autoassinado (Self-signed)
-                        res = requests.post("https://wppapi.leanttro.com/disparar", json=payload, timeout=5, verify=False)
+                        # FIX: COMUNICAÇÃO INTERNA DOKPLOY (NOME DO SERVIÇO : PORTA)
+                        res = requests.post("http://atendente-whatsapp-wppapi-hj6iz6:3000/disparar", json=payload, timeout=20)
                         
                         if res.status_code == 200:
                             sucessos += 1
