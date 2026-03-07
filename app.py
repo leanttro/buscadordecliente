@@ -643,4 +643,3 @@ with tab2:
                     time.sleep(10) # Delay de segurança (10s entre msgs) para não levar ban no chip
                 
                 st.success(f"Fim do disparo! ✅ Enviados: {sucessos} | ❌ Falhas: {erros}")
-}
