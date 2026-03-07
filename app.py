@@ -595,7 +595,7 @@ with tab2:
         df = pd.DataFrame(st.session_state["leads_zap"])
         st.write("---")
         st.markdown(f"### 📋 LISTA DE ATAQUE: {len(df)} LEADS")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch') # FIX: Limpa aviso de container_width
         
         c_down, c_fire = st.columns(2)
         
@@ -606,7 +606,7 @@ with tab2:
         with c_fire:
             # BOTÃO DE DISPARO REAL
             if st.button("🔥 DISPARAR CAMPANHA (VIA NODE.JS LOCAL)"):
-                st.info("Iniciando disparos para o localhost:3000...")
+                st.info("Iniciando disparos para o servidor central...")
                 sucessos = 0
                 erros = 0
                 
@@ -623,8 +623,8 @@ with tab2:
                             "message": mensagem_fria
                         }
                         
-                        # POST para o seu index.js (que deve estar rodando express)
-                        res = requests.post("http://localhost:3000/disparar", json=payload, timeout=5)
+                        # FIX: URL Pública do Dokploy
+                        res = requests.post("https://wppapi.leanttro.com/disparar", json=payload, timeout=5)
                         
                         if res.status_code == 200:
                             sucessos += 1
@@ -639,3 +639,4 @@ with tab2:
                     time.sleep(10) # Delay de segurança (10s entre msgs) para não levar ban no chip
                 
                 st.success(f"Fim do disparo! ✅ Enviados: {sucessos} | ❌ Falhas: {erros}")
+}
