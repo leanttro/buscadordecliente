@@ -10,6 +10,7 @@ import random
 from io import BytesIO
 from groq import Groq
 import urllib3
+import functools
 
 # --- FIX SSL: Ignora avisos de certificados autoassinados ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -142,6 +143,39 @@ st.markdown("""
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 
+# --- INICIALIZAÇÃO DAS CONFIGURAÇÕES NO SESSION STATE ---
+if "mensagem_padrao" not in st.session_state:
+    st.session_state.mensagem_padrao = "Opa {primeiro_nome}, tudo bem? Vi que vocês atendem no {bairro}. Tentei achar o site de vcs no Google e não consegui, tá fora do ar?"
+
+if "system_prompt_padrao" not in st.session_state:
+    st.session_state.system_prompt_padrao = """
+    ATUE COMO: Head de Vendas da 'Leanttro Digital', focado em fechar negócios RÁPIDOS hoje.
+    
+    SEUS PRODUTOS (LEANTTRO.COM) - PRIORIDADE 1 (DINHEIRO RÁPIDO HOJE):
+    1. CATÁLOGOS E MENUS: "Cardápio digital", "Catálogo para WhatsApp", "Menu online".
+    2. DESIGN RÁPIDO: "Logo urgente", "Arte para lanchonete", "Post para redes sociais".
+    3. SITES SIMPLES: "Site rápido", "Link na bio estruturado", "Landing page simples".
+    
+    OBJETIVO SECUNDÁRIO - PRIORIDADE 2 (PROJETOS MAIORES):
+    - "E-commerce completo", "Sistemas complexos", "Automação", "Dashboard".
+    
+    TAREFAS:
+    1. Identifique o NOME e o TIPO DE OPORTUNIDADE.
+    2. CALCULE O SCORE:
+       - URGENTE/RÁPIDO (Catálogo, Logo, Site simples para HOJE) = SCORE ALTO (80-100). 🔥
+       - PROJETO MAIOR (E-commerce, Sistema, Vaga) = SCORE MÉDIO (50-79). ⚠️
+       - LIXO/IRRELEVANTE = SCORE BAIXO (0-49). ❄️
+    
+    SAÍDA JSON OBRIGATÓRIA:
+    {{
+        "autor": "Nome (ou Empresa)",
+        "score": (0-100),
+        "resumo_post": "Resumo em 10 palavras",
+        "produto_recomendado": "Serviço Leanttro (Catálogo, Logo, Site Simples)",
+        "argumento_venda": "Foque em entrega IMEDIATA e facilidade. Ex: 'Entrego seu catálogo rodando hoje mesmo no WhatsApp'."
+    }}
+    """
+
 # --- ESTRATÉGIA DE SUGESTÕES (ATUALIZADA PARA DINHEIRO RÁPIDO) ---
 SUGESTOES_STRATEGICAS = {
     "Sites de Freelance (Workana/99)": [
@@ -252,40 +286,12 @@ def search_google_serper(query, period, num_results=10):
         print(f"ERRO CONEXÃO SERPER: {e}")
         return []
 
-def analyze_lead_groq(title, snippet, link, groq_key):
+def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
     """Analisa o post e tenta extrair o autor e contexto"""
     if not groq_key: 
         return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     
     client = Groq(api_key=groq_key)
-    
-    system_prompt = f"""
-    ATUE COMO: Head de Vendas da 'Leanttro Digital', focado em fechar negócios RÁPIDOS hoje.
-    
-    SEUS PRODUTOS (LEANTTRO.COM) - PRIORIDADE 1 (DINHEIRO RÁPIDO HOJE):
-    1. CATÁLOGOS E MENUS: "Cardápio digital", "Catálogo para WhatsApp", "Menu online".
-    2. DESIGN RÁPIDO: "Logo urgente", "Arte para lanchonete", "Post para redes sociais".
-    3. SITES SIMPLES: "Site rápido", "Link na bio estruturado", "Landing page simples".
-    
-    OBJETIVO SECUNDÁRIO - PRIORIDADE 2 (PROJETOS MAIORES):
-    - "E-commerce completo", "Sistemas complexos", "Automação", "Dashboard".
-    
-    TAREFAS:
-    1. Identifique o NOME e o TIPO DE OPORTUNIDADE.
-    2. CALCULE O SCORE:
-       - URGENTE/RÁPIDO (Catálogo, Logo, Site simples para HOJE) = SCORE ALTO (80-100). 🔥
-       - PROJETO MAIOR (E-commerce, Sistema, Vaga) = SCORE MÉDIO (50-79). ⚠️
-       - LIXO/IRRELEVANTE = SCORE BAIXO (0-49). ❄️
-    
-    SAÍDA JSON OBRIGATÓRIA:
-    {{
-        "autor": "Nome (ou Empresa)",
-        "score": (0-100),
-        "resumo_post": "Resumo em 10 palavras",
-        "produto_recomendado": "Serviço Leanttro (Catálogo, Logo, Site Simples)",
-        "argumento_venda": "Foque em entrega IMEDIATA e facilidade. Ex: 'Entrego seu catálogo rodando hoje mesmo no WhatsApp'."
-    }}
-    """
     
     try:
         completion = client.chat.completions.create(
@@ -301,7 +307,7 @@ def analyze_lead_groq(title, snippet, link, groq_key):
     except Exception as e:
         return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro IA", "argumento_venda": "Falha na análise"}
 
-def process_single_item(item):
+def process_single_item(item, system_prompt):
     """Função wrapper para rodar em paralelo"""
     titulo = item.get('title', '')
     link = item.get('link', '')
@@ -309,7 +315,7 @@ def process_single_item(item):
     data_pub = item.get('date', 'Data n/d')
     
     # Chama a IA
-    analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY)
+    analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY, system_prompt)
     
     return {
         "item": item,
@@ -345,7 +351,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # SISTEMA DE ABAS (TABS) PARA ORGANIZAR
-tab1, tab2 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR SNIPER (B2B + WHATSAPP)"])
+tab1, tab2, tab3 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR SNIPER (B2B + WHATSAPP)", "⚙️ CONFIGURAÇÃO E TREINAMENTO"])
 
 # ==============================================================================
 # ABA 1: O SEU BUSCADOR ORIGINAL (IA + SERPER)
@@ -422,7 +428,8 @@ with tab1:
                 bar_text.text("🕵️ IA analisando leads em paralelo...")
                 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                    future_to_item = {executor.submit(process_single_item, item): item for item in resultados}
+                    # Passa o system_prompt atual para cada tarefa
+                    future_to_item = {executor.submit(process_single_item, item, st.session_state.system_prompt_padrao): item for item in resultados}
                     
                     completed = 0
                     for future in concurrent.futures.as_completed(future_to_item):
@@ -618,9 +625,9 @@ with tab2:
                 
                 for idx, row in df.iterrows():
                     try:
-                        # Monta a mensagem personalizada
+                        # Monta a mensagem personalizada usando a mensagem do painel
                         primeiro_nome = row['Empresa'].split(' ')[0]
-                        mensagem_fria = f"Opa {primeiro_nome}, tudo bem? Vi que vocês atendem no {row['Bairro']}. Tentei achar o site de vcs no Google e não consegui, tá fora do ar?"
+                        mensagem_fria = st.session_state.mensagem_padrao.format(primeiro_nome=primeiro_nome, bairro=row['Bairro'])
                         
                         payload = {
                             "number": row['Whatsapp'], 
@@ -643,3 +650,39 @@ with tab2:
                     time.sleep(10) # Delay de segurança (10s entre msgs) para não levar ban no chip
                 
                 st.success(f"Fim do disparo! ✅ Enviados: {sucessos} | ❌ Falhas: {erros}")
+
+# ==============================================================================
+# ABA 3: CONFIGURAÇÃO E TREINAMENTO
+# ==============================================================================
+with tab3:
+    st.markdown("<h2 style='color:white'>⚙️ CONFIGURAÇÃO E <span style='color:#D2FF00'>TREINAMENTO</span></h2>", unsafe_allow_html=True)
+    
+    st.markdown("### ✍️ Mensagem de Disparo (fria)")
+    st.caption("Use as variáveis `{primeiro_nome}` e `{bairro}` para personalizar.")
+    nova_mensagem = st.text_area(
+        "Edite a mensagem que será enviada no disparo:",
+        value=st.session_state.mensagem_padrao,
+        height=150,
+        key="input_mensagem"
+    )
+    if nova_mensagem != st.session_state.mensagem_padrao:
+        st.session_state.mensagem_padrao = nova_mensagem
+        st.success("Mensagem atualizada!")
+    
+    st.divider()
+    
+    st.markdown("### 🧠 System Prompt da IA (treinamento)")
+    st.caption("Este prompt ensina a IA a analisar os leads. Altere à vontade.")
+    novo_prompt = st.text_area(
+        "Edite o system prompt:",
+        value=st.session_state.system_prompt_padrao,
+        height=400,
+        key="input_prompt"
+    )
+    if novo_prompt != st.session_state.system_prompt_padrao:
+        st.session_state.system_prompt_padrao = novo_prompt
+        st.success("System prompt atualizado!")
+    
+    st.divider()
+    st.markdown("### 💡 Dica")
+    st.info("As alterações são salvas automaticamente na sessão. Use os botões de disparo e radar normalmente; eles já usarão os novos textos.")
