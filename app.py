@@ -627,8 +627,8 @@ with tab2:
                             "message": mensagem_fria
                         }
                         
-                        # FIX: USANDO IP EXTERNO E PORTA 3000 (CORRIGIDO DE 3001 PARA 3000)
-                        res = requests.post("http://213.199.56.207:3000/disparar", json=payload, timeout=20)
+                        # FIX: USANDO IP EXTERNO E PORTA 3001 (JÁ QUE A 3000 É DO PAINEL DOKPLOY)
+                        res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
                         
                         if res.status_code == 200:
                             sucessos += 1
