@@ -9,6 +9,10 @@ import re
 import random
 from io import BytesIO
 from groq import Groq
+import urllib3
+
+# --- FIX SSL: Ignora avisos de certificados autoassinados ---
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LEANTTRO | Buscador de Oportunidades", layout="wide", page_icon="🚀")
@@ -138,45 +142,44 @@ st.markdown("""
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 
-# --- ESTRATÉGIA DE SUGESTÕES (MANTIDA ORIGINAL) ---
+# --- ESTRATÉGIA DE SUGESTÕES (ATUALIZADA PARA DINHEIRO RÁPIDO) ---
 SUGESTOES_STRATEGICAS = {
     "Sites de Freelance (Workana/99)": [
-        "preciso programador python", 
-        "criar site de vendas", 
-        "dashboard power bi", 
-        "integrar api sistema", 
-        "automação n8n", 
-        "analista de dados gcp" 
+        "procuro criador de cardápio digital", 
+        "preciso de designer para logo urgente", 
+        "indicação para fazer menu de whatsapp", 
+        "alguém para criar site simples hoje", 
+        "procuro arte rápida para lanchonete" 
     ],
     "LinkedIn (Postagens/Feed)": [
-        "preciso de desenvolvedor python",
-        "busco freela criação de site",
-        "procuro gestor de tráfego" , 
-        "indicação criação de site",
-        "sistema lento ajuda", 
-        "vaga pj desenvolvedor backend" 
+        "preciso de cardápio digital",
+        "busco designer para logo",
+        "indicação criador de catálogo" , 
+        "alguém para fazer menu whatsapp",
+        "preciso de site simples urgente", 
+        "urgente arte para redes sociais" 
     ],
     "LinkedIn (Empresas)": [
-        "Logística e Transportes", 
-        "Agência de Marketing", 
-        "Consultoria de Dados",
-        "E-commerce de Autopeças", 
-        "Assessoria de Eventos" 
+        "Hamburgueria Delivery", 
+        "Confeitaria", 
+        "Pizzaria",
+        "Loja de Roupas", 
+        "Marmitaria" 
     ],
     "Instagram/Negócios (Estratégia Maps)": [
-        "auto peças", 
-        "assessoria de casamento", 
-        "buffet infantil", 
-        "loja de roupas feminina", 
-        "advocacia", 
-        "clinica de estética" 
+        "hamburgueria delivery", 
+        "doceria gourmet", 
+        "loja de roupas", 
+        "marmitaria", 
+        "artesanato", 
+        "confeitaria artesanal" 
     ],
     "Google (Geral)": [
-        "contratar criação de site",
-        "desenvolvedor python freelancer",
-        "empresa de engenharia de dados",
-        "orçamento loja virtual",
-        "preciso de um cto"
+        "contratar criador de cardápio digital",
+        "designer freelancer logo urgente",
+        "fazer catálogo whatsapp",
+        "orçamento site simples",
+        "preciso de arte para lanchonete"
     ]
 }
 
@@ -257,21 +260,21 @@ def analyze_lead_groq(title, snippet, link, groq_key):
     client = Groq(api_key=groq_key)
     
     system_prompt = f"""
-    ATUE COMO: Head de Vendas da 'Leanttro Digital'.
+    ATUE COMO: Head de Vendas da 'Leanttro Digital', focado em fechar negócios RÁPIDOS hoje.
     
-    SEUS PRODUTOS (LEANTTRO.COM) - PRIORIDADE 1 (VENDER PROJETO/FREELA):
-    1. CRIAÇÃO DE SITES/LPs: "Preciso de um site", "Melhorar conversão", "Landing Page".
-    2. E-COMMERCE: "Loja virtual", "Vender online", "Woocommerce/Shopify".
-    3. SISTEMAS/DADOS: "Automação", "Dashboard", "Script Python", "Raspagem de dados", "Integração API".
+    SEUS PRODUTOS (LEANTTRO.COM) - PRIORIDADE 1 (DINHEIRO RÁPIDO HOJE):
+    1. CATÁLOGOS E MENUS: "Cardápio digital", "Catálogo para WhatsApp", "Menu online".
+    2. DESIGN RÁPIDO: "Logo urgente", "Arte para lanchonete", "Post para redes sociais".
+    3. SITES SIMPLES: "Site rápido", "Link na bio estruturado", "Landing page simples".
     
-    OBJETIVO SECUNDÁRIO - PRIORIDADE 2 (VAGA DE EMPREGO/CONTRATAÇÃO):
-    - Se o post for "Vaga CLT", "Contratação PJ fixo", "Join our team", "Estamos contratando dev".
+    OBJETIVO SECUNDÁRIO - PRIORIDADE 2 (PROJETOS MAIORES):
+    - "E-commerce completo", "Sistemas complexos", "Automação", "Dashboard".
     
     TAREFAS:
     1. Identifique o NOME e o TIPO DE OPORTUNIDADE.
     2. CALCULE O SCORE:
-       - PROJETO/FREELA (Escopo fechado/Agência) = SCORE ALTO (80-100). 🔥
-       - VAGA/EMPREGO (Longo prazo/Fixo) = SCORE MÉDIO (50-79). ⚠️
+       - URGENTE/RÁPIDO (Catálogo, Logo, Site simples para HOJE) = SCORE ALTO (80-100). 🔥
+       - PROJETO MAIOR (E-commerce, Sistema, Vaga) = SCORE MÉDIO (50-79). ⚠️
        - LIXO/IRRELEVANTE = SCORE BAIXO (0-49). ❄️
     
     SAÍDA JSON OBRIGATÓRIA:
@@ -279,8 +282,8 @@ def analyze_lead_groq(title, snippet, link, groq_key):
         "autor": "Nome (ou Empresa)",
         "score": (0-100),
         "resumo_post": "Resumo em 10 palavras",
-        "produto_recomendado": "Serviço Leanttro (se projeto) ou 'Candidatura Vaga' (se emprego)",
-        "argumento_venda": "Se for PROJETO: Foque em entrega rápida/qualidade Leanttro. Se for VAGA: Destaque o perfil Sênior/Fullstack do Leandro."
+        "produto_recomendado": "Serviço Leanttro (Catálogo, Logo, Site Simples)",
+        "argumento_venda": "Foque em entrega IMEDIATA e facilidade. Ex: 'Entrego seu catálogo rodando hoje mesmo no WhatsApp'."
     }}
     """
     
@@ -336,8 +339,8 @@ with st.sidebar:
     st.markdown("""
     <div class="custom-info-box">
         <b>Prioridade Leanttro:</b><br>
-        1. <b>Projetos/Freelas (🔥):</b> Vender sites e serviços da agência.<br>
-        2. <b>Vagas (⚠️):</b> Emprego fixo (Plano B).
+        1. <b>Projetos Rápidos (🔥):</b> Catálogos e Logos Urgentes.<br>
+        2. <b>Projetos Maiores (⚠️):</b> Sistemas e E-commerces.
     </div>
     """, unsafe_allow_html=True)
 
@@ -596,7 +599,7 @@ with tab2:
         df = pd.DataFrame(st.session_state["leads_zap"])
         st.write("---")
         st.markdown(f"### 📋 LISTA DE ATAQUE: {len(df)} LEADS")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch') # FIX: Limpa aviso de container_width
         
         c_down, c_fire = st.columns(2)
         
@@ -606,8 +609,8 @@ with tab2:
 
         with c_fire:
             # BOTÃO DE DISPARO REAL
-            if st.button("🔥 DISPARAR CAMPANHA (VIA NODE.JS LOCAL)"):
-                st.info("Iniciando disparos para o localhost:3000...")
+            if st.button("🔥 DISPARAR CAMPANHA (VIA IP EXTERNO)"):
+                st.info("Iniciando disparos para o servidor central...")
                 sucessos = 0
                 erros = 0
                 
@@ -624,8 +627,8 @@ with tab2:
                             "message": mensagem_fria
                         }
                         
-                        # POST para o seu index.js (que deve estar rodando express)
-                        res = requests.post("http://localhost:3000/disparar", json=payload, timeout=5)
+                        # FIX: USANDO IP EXTERNO E PORTA 3001 (JÁ QUE A 3000 É DO PAINEL DOKPLOY)
+                        res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
                         
                         if res.status_code == 200:
                             sucessos += 1

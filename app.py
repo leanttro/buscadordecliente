@@ -176,6 +176,25 @@ if "system_prompt_padrao" not in st.session_state:
     }}
     """
 
+# --- NOVAS CONFIGURAÇÕES DE SEGURANÇA E ANTI-BLOQUEIO ---
+if "saudacoes" not in st.session_state:
+    st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi"]
+
+if "delay_min" not in st.session_state:
+    st.session_state.delay_min = 5
+
+if "delay_max" not in st.session_state:
+    st.session_state.delay_max = 15
+
+if "daily_limit" not in st.session_state:
+    st.session_state.daily_limit = 50
+
+if "blacklist" not in st.session_state:
+    st.session_state.blacklist = set()
+
+if "sent_count" not in st.session_state:
+    st.session_state.sent_count = 0
+
 # --- ESTRATÉGIA DE SUGESTÕES (ATUALIZADA PARA DINHEIRO RÁPIDO) ---
 SUGESTOES_STRATEGICAS = {
     "Sites de Freelance (Workana/99)": [
@@ -351,7 +370,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # SISTEMA DE ABAS (TABS) PARA ORGANIZAR
-tab1, tab2, tab3 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR SNIPER (B2B + WHATSAPP)", "⚙️ CONFIGURAÇÃO E TREINAMENTO"])
+tab1, tab2, tab3 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR SNIPER (B2B + WHATSAPP)", "⚙️ CONTROLE E SEGURANÇA"])
 
 # ==============================================================================
 # ABA 1: O SEU BUSCADOR ORIGINAL (IA + SERPER)
@@ -615,50 +634,86 @@ with tab2:
             st.download_button("📥 BAIXAR BASE (EXCEL)", data=to_excel(df), file_name="leads_zap_bairros.xlsx")
 
         with c_fire:
-            # BOTÃO DE DISPARO REAL
+            # BOTÃO DE DISPARO REAL (COM AS NOVAS FUNCIONALIDADES)
             if st.button("🔥 DISPARAR CAMPANHA (VIA IP EXTERNO)"):
-                st.info("Iniciando disparos para o servidor central...")
-                sucessos = 0
-                erros = 0
-                
-                msg_bar = st.progress(0)
-                
-                for idx, row in df.iterrows():
-                    try:
-                        # Monta a mensagem personalizada usando a mensagem do painel
-                        primeiro_nome = row['Empresa'].split(' ')[0]
-                        mensagem_fria = st.session_state.mensagem_padrao.format(primeiro_nome=primeiro_nome, bairro=row['Bairro'])
-                        
-                        payload = {
-                            "number": row['Whatsapp'], 
-                            "message": mensagem_fria
-                        }
-                        
-                        # FIX: USANDO IP EXTERNO E PORTA 3001 (JÁ QUE A 3000 É DO PAINEL DOKPLOY)
-                        res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
-                        
-                        if res.status_code == 200:
-                            sucessos += 1
-                        else:
-                            erros += 1
-                            
-                    except Exception as e:
-                        print(f"Erro ao enviar para {row['Whatsapp']}: {e}")
-                        erros += 1
+                # Verifica se há leads
+                if len(df) == 0:
+                    st.warning("Nenhum lead para disparar.")
+                else:
+                    st.info("Iniciando disparos para o servidor central...")
+                    sucessos = 0
+                    erros = 0
+                    duplicates = 0
+                    limit_break = False
                     
-                    msg_bar.progress((idx + 1) / len(df))
-                    time.sleep(10) # Delay de segurança (10s entre msgs) para não levar ban no chip
-                
-                st.success(f"Fim do disparo! ✅ Enviados: {sucessos} | ❌ Falhas: {erros}")
+                    msg_bar = st.progress(0)
+                    
+                    # Loop pelos leads
+                    for idx, row in df.iterrows():
+                        # Atualiza barra de progresso
+                        msg_bar.progress((idx + 1) / len(df))
+                        
+                        # Verifica limite diário
+                        if st.session_state.sent_count >= st.session_state.daily_limit:
+                            st.warning(f"Limite diário de {st.session_state.daily_limit} envios atingido. Disparo interrompido.")
+                            limit_break = True
+                            break
+                        
+                        numero = row['Whatsapp']
+                        
+                        # Verifica se já foi enviado na sessão (blacklist)
+                        if numero in st.session_state.blacklist:
+                            duplicates += 1
+                            continue
+                        
+                        try:
+                            # Escolhe saudação aleatória
+                            saudacao_escolhida = random.choice(st.session_state.saudacoes) if st.session_state.saudacoes else "Opa"
+                            
+                            # Substitui {saudacao} na mensagem, se existir
+                            mensagem_com_saudacao = st.session_state.mensagem_padrao.replace("{saudacao}", saudacao_escolhida)
+                            
+                            # Formata com nome e bairro
+                            primeiro_nome = row['Empresa'].split(' ')[0]
+                            mensagem_fria = mensagem_com_saudacao.format(primeiro_nome=primeiro_nome, bairro=row['Bairro'])
+                            
+                            payload = {
+                                "number": numero, 
+                                "message": mensagem_fria
+                            }
+                            
+                            # Dispara (URL fixa)
+                            res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
+                            
+                            if res.status_code == 200:
+                                sucessos += 1
+                                st.session_state.sent_count += 1
+                                st.session_state.blacklist.add(numero)
+                            else:
+                                erros += 1
+                                
+                        except Exception as e:
+                            print(f"Erro ao enviar para {numero}: {e}")
+                            erros += 1
+                        
+                        # Delay aleatório entre mínimo e máximo
+                        delay = random.randint(st.session_state.delay_min, st.session_state.delay_max)
+                        time.sleep(delay)
+                    
+                    # Mensagem final
+                    if limit_break:
+                        st.warning(f"✅ Enviados: {sucessos} | ❌ Falhas: {erros} | ⏭️ Duplicados ignorados: {duplicates} | 🛑 Parou por limite.")
+                    else:
+                        st.success(f"Fim do disparo! ✅ Enviados: {sucessos} | ❌ Falhas: {erros} | ⏭️ Duplicados ignorados: {duplicates}")
 
 # ==============================================================================
-# ABA 3: CONFIGURAÇÃO E TREINAMENTO
+# ABA 3: CONTROLE E SEGURANÇA
 # ==============================================================================
 with tab3:
-    st.markdown("<h2 style='color:white'>⚙️ CONFIGURAÇÃO E <span style='color:#D2FF00'>TREINAMENTO</span></h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:white'>⚙️ CONTROLE E <span style='color:#D2FF00'>SEGURANÇA</span></h2>", unsafe_allow_html=True)
     
     st.markdown("### ✍️ Mensagem de Disparo (fria)")
-    st.caption("Use as variáveis `{primeiro_nome}` e `{bairro}` para personalizar.")
+    st.caption("Use as variáveis `{primeiro_nome}`, `{bairro}` e opcionalmente `{saudacao}` (será substituída por uma saudação aleatória).")
     nova_mensagem = st.text_area(
         "Edite a mensagem que será enviada no disparo:",
         value=st.session_state.mensagem_padrao,
@@ -684,5 +739,59 @@ with tab3:
         st.success("System prompt atualizado!")
     
     st.divider()
-    st.markdown("### 💡 Dica")
-    st.info("As alterações são salvas automaticamente na sessão. Use os botões de disparo e radar normalmente; eles já usarão os novos textos.")
+    
+    st.markdown("### 🗣️ Variações de Saudação")
+    st.caption("Lista de saudações separadas por vírgula. Ex: Opa, Olá, Tudo bem, Oi")
+    saudacoes_input = st.text_input(
+        "Saudações:",
+        value=", ".join(st.session_state.saudacoes),
+        key="input_saudacoes"
+    )
+    if saudacoes_input:
+        nova_lista = [s.strip() for s in saudacoes_input.split(",") if s.strip()]
+        if nova_lista and nova_lista != st.session_state.saudacoes:
+            st.session_state.saudacoes = nova_lista
+            st.success("Saudações atualizadas!")
+    
+    st.divider()
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### ⏱️ Delay entre disparos (segundos)")
+        min_delay = st.number_input("Delay mínimo:", min_value=1, max_value=60, value=st.session_state.delay_min, key="min_delay")
+        if min_delay != st.session_state.delay_min:
+            st.session_state.delay_min = min_delay
+    with col2:
+        max_delay = st.number_input("Delay máximo:", min_value=1, max_value=120, value=st.session_state.delay_max, key="max_delay")
+        if max_delay != st.session_state.delay_max:
+            st.session_state.delay_max = max_delay
+    if st.session_state.delay_min > st.session_state.delay_max:
+        st.error("O delay mínimo não pode ser maior que o máximo.")
+    
+    st.divider()
+    
+    st.markdown("### 🔒 Limite Diário e Estatísticas")
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        novo_limite = st.number_input("Limite máximo por sessão:", min_value=1, value=st.session_state.daily_limit, key="daily_limit_input")
+        if novo_limite != st.session_state.daily_limit:
+            st.session_state.daily_limit = novo_limite
+    with col_b:
+        st.metric("Envios realizados nesta sessão", st.session_state.sent_count)
+    with col_c:
+        st.metric("Números únicos já enviados", len(st.session_state.blacklist))
+    
+    if st.button("🔄 Resetar contadores e blacklist"):
+        st.session_state.sent_count = 0
+        st.session_state.blacklist = set()
+        st.success("Contadores e blacklist zerados!")
+        st.rerun()
+    
+    st.divider()
+    st.markdown("### 💡 Dicas de Segurança")
+    st.info(
+        "- Use delays aleatórios para simular comportamento humano.\n"
+        "- O limite diário evita que você seja bloqueado pelo WhatsApp.\n"
+        "- A blacklist impede o reenvio para o mesmo número na mesma sessão.\n"
+        "- A saudação variável torna as mensagens menos padronizadas."
+    )
