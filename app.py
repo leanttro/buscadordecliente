@@ -9,6 +9,9 @@ import re
 import random
 from io import BytesIO
 from groq import Groq
+# Import necessário para suprimir avisos de SSL inseguro
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LEANTTRO | Buscador de Oportunidades", layout="wide", page_icon="🚀")
@@ -623,8 +626,8 @@ with tab2:
                             "message": mensagem_fria
                         }
                         
-                        # FIX: URL Pública do Dokploy
-                        res = requests.post("https://wppapi.leanttro.com/disparar", json=payload, timeout=5)
+                        # FIX SSL: verify=False ignora o erro de certificado autoassinado do seu servidor central
+                        res = requests.post("https://wppapi.leanttro.com/disparar", json=payload, timeout=5, verify=False)
                         
                         if res.status_code == 200:
                             sucessos += 1
@@ -639,3 +642,4 @@ with tab2:
                     time.sleep(10) # Delay de segurança (10s entre msgs) para não levar ban no chip
                 
                 st.success(f"Fim do disparo! ✅ Enviados: {sucessos} | ❌ Falhas: {erros}")
+}
