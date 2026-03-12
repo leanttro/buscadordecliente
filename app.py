@@ -94,7 +94,8 @@ st.markdown("""
 DIRECTUS_URL = os.getenv("DIRECTUS_URL", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
-TRACKING_WEBHOOK_KEY = "0deea9a4-ce23-4aee-bb82-d9422bd8e15f"
+TRACKING_WEBHOOK_KEY = os.getenv("TRACKING_WEBHOOK_KEY", "")
+WPP_API_URL = os.getenv("WPP_API_URL", "http://213.199.56.207:3001")
 
 groq_client = None
 if GROQ_API_KEY:
@@ -828,7 +829,7 @@ with tab4:
                         assunto_final = assunto.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())    
                         
                         log_id = registrar_log_envio(token, email_real, assunto_final, "Enviando")
-                        url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id else None
+                        url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id and TRACKING_WEBHOOK_KEY else None
                         
                         texto_final = corpo.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
                         
@@ -872,7 +873,7 @@ with tab4:
                             img_base64 = base64.b64encode(file_anexo_wpp.getvalue()).decode('utf-8')
                             payload["image"] = img_base64
                             
-                        res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
+                        res = requests.post(f"{WPP_API_URL.rstrip('/')}/disparar", json=payload, timeout=20)
                         if res.status_code == 200:
                             tracking["sent_today"] += 1
                             tracking["sent_this_hour"] += 1
@@ -975,7 +976,7 @@ with tab4:
                                 log_id = registrar_log_envio(token, email_l, assunto_final_ext, "Enviando... [EXT]")
                                 
                                 tracking_url = None
-                                if log_id and TRACKING_WEBHOOK_KEY != "SUA_CHAVE_AQUI":
+                                if log_id and TRACKING_WEBHOOK_KEY:
                                     base_clean = DIRECTUS_URL.rstrip('/')
                                     tracking_url = f"{base_clean}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}"
 
@@ -1038,7 +1039,7 @@ with tab4:
                                         img_base64 = base64.b64encode(file_anexo_wpp_ext.getvalue()).decode('utf-8')
                                         payload["image"] = img_base64
                                         
-                                    res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
+                                    res = requests.post(f"{WPP_API_URL.rstrip('/')}/disparar", json=payload, timeout=20)
                                     
                                     if res.status_code == 200:
                                         tracking["sent_today"] += 1
