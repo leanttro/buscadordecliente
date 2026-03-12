@@ -597,6 +597,9 @@ with tab2:
         bar = st.progress(0)
         prefixo_fonte = FONTES_MINERADOR[fonte_alvo]
         
+        telefones_db = df['telefone'].dropna().astype(str).tolist() if not df.empty and 'telefone' in df.columns else []
+        emails_db = df['email'].dropna().astype(str).tolist() if not df.empty and 'email' in df.columns else []
+        
         for i, bairro in enumerate(lista_bairros):
             query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
             for q in [f'{query_base} "whatsapp"', f'{query_base} "@gmail.com" OR "@hotmail.com"']:
@@ -606,23 +609,49 @@ with tab2:
                     zap = extrair_whatsapp(texto_completo)
                     email = extrair_email(texto_completo)
                     if zap or email:
-                        if not any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"]):
+                        exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
+                        exists_new = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
+                        exists_db = (zap and zap in telefones_db) or (email and email in emails_db)
+                        
+                        if not exists_local and not exists_new and not exists_db:
                             novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Whatsapp": zap if zap else "", "Email": email if email else "", "Fonte": fonte_alvo, "Link": r.get('link')})
             bar.progress((i + 1) / len(lista_bairros))
             time.sleep(0.5) 
         if novos_leads:
             st.session_state["leads_isolados"].extend(novos_leads)
-            st.success(f"{len(novos_leads)} CONTATOS ENCONTRADOS")
+            st.success(f"{len(novos_leads)} CONTATOS INÉDITOS ENCONTRADOS")
     
     if st.session_state["leads_isolados"]:
         df_mine = pd.DataFrame(st.session_state["leads_isolados"])
         st.dataframe(df_mine, width='stretch')
         if st.button("SALVAR TODOS NO CRM"):
+            df_atual = carregar_dados(token, user_id)
+            telefones_db = df_atual['telefone'].dropna().astype(str).tolist() if not df_atual.empty and 'telefone' in df_atual.columns else []
+            emails_db = df_atual['email'].dropna().astype(str).tolist() if not df_atual.empty and 'email' in df_atual.columns else []
+            
+            salvos = 0
+            duplicados = 0
             for _, row in df_mine.iterrows():
-                salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": row["Email"], "telefone": row["Whatsapp"], "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"]})
-            st.success("Enviados para o banco de dados")
+                zap_row = str(row["Whatsapp"]).strip()
+                email_row = str(row["Email"]).strip()
+                
+                is_dup_zap = zap_row and zap_row in telefones_db
+                is_dup_email = email_row and email_row in emails_db
+                
+                if is_dup_zap or is_dup_email:
+                    duplicados += 1
+                    continue
+                    
+                salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"]})
+                salvos += 1
+                if zap_row: telefones_db.append(zap_row)
+                if email_row: emails_db.append(email_row)
+                
+            if duplicados > 0:
+                st.warning(f"Ignorados {duplicados} contatos que ja estavam no CRM")
+            st.success(f"{salvos} novos contatos enviados para o banco de dados")
             st.session_state["leads_isolados"] = []
-            time.sleep(1)
+            time.sleep(2)
             st.rerun()
 
 with tab3:
@@ -702,17 +731,31 @@ with tab4:
     if ocultar_enviados and not df_unificado.empty and 'status' in df_unificado.columns:
         df_unificado = df_unificado[df_unificado['status'] != "ENVIADO EM MASSA"]
         
-    if not df_unificado.empty: df_unificado['label'] = df_unificado.get('nome', df_unificado.get('email', 'Desc')) + " " + df_unificado.get('origem', '')
-    
     c1, c2 = st.columns([1, 1])
     with c1:
+        metodo_envio = st.radio("MÉTODO DE DISPARO", ["Email SMTP", "WhatsApp Baileys API"], horizontal=True)
+        
+        if not df_unificado.empty:
+            if metodo_envio == "Email SMTP":
+                if 'email' in df_unificado.columns:
+                    df_unificado = df_unificado[df_unificado['email'].astype(str).str.strip().str.lower().isin(['nan', 'none', '']) == False]
+                else:
+                    df_unificado = pd.DataFrame()
+            else:
+                if 'telefone' in df_unificado.columns:
+                    df_unificado = df_unificado[df_unificado['telefone'].astype(str).str.strip().str.lower().isin(['nan', 'none', '']) == False]
+                else:
+                    df_unificado = pd.DataFrame()
+            
+            if not df_unificado.empty:
+                df_unificado['label'] = df_unificado.get('nome', df_unificado.get('email', 'Desc')) + " " + df_unificado.get('origem', '')
+        
         alvos_sel = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
         modo_lote = st.checkbox("⚡ Enviar Lote de 10?", value=True)
         alvos_finais = alvos_sel[:10] if modo_lote else alvos_sel
         if modo_lote and len(alvos_sel) > 10:
             st.caption(f"Faltam {len(alvos_sel)-10} leads para os próximos lotes")
             
-        metodo_envio = st.radio("MÉTODO DE DISPARO", ["Email SMTP", "WhatsApp Baileys API"], horizontal=True)
     with c2:
         if metodo_envio == "Email SMTP":
             assunto = st.text_input("ASSUNTO", key="ass_massa")
