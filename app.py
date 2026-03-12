@@ -518,586 +518,596 @@ with st.sidebar:
         ed = st.text_area("O QUE VENDE", value="Landing Pages de Alta Conversão para Advogados Produto foco www.leanttro.com/zenilda-adv Ajuda a passar autoridade e captar clientes qualificados")
         if st.button("SALVAR CONTEXTO"): st.session_state['ctx'] = {'empresa': en, 'descricao': ed}, st.success("SALVO")
 
-render_header()
-df = carregar_dados(token, user_id)
-df_bot = carregar_dados_bot(token)
+try:
+    render_header()
+    df = carregar_dados(token, user_id)
+    df_bot = carregar_dados_bot(token)
 
-COTA_MAXIMA = 100
-envios_realizados = contar_envios_hoje(token)
-saldo_envios = COTA_MAXIMA - envios_realizados
+    COTA_MAXIMA = 100
+    envios_realizados = contar_envios_hoje(token)
+    saldo_envios = COTA_MAXIMA - envios_realizados
 
-k1, k2, k3 = st.columns(3)
-k1.metric("TOTAL LEADS CRM", len(df))
-k2.metric("LEADS BOT", len(df_bot))
-k3.metric("SALDO EMAIL DIARIO", saldo_envios)
+    k1, k2, k3 = st.columns(3)
+    k1.metric("TOTAL LEADS CRM", len(df))
+    k2.metric("LEADS BOT", len(df_bot))
+    k3.metric("SALDO EMAIL DIARIO", saldo_envios)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 RADAR DE INTENÇÃO", "⛏️ MINERADOR DE DADOS", "📋 CRM E AÇÕES", "🚀 DISPARO SNIPER", "⚙️ CONFIGURAÇÕES"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 RADAR DE INTENÇÃO", "⛏️ MINERADOR DE DADOS", "📋 CRM E AÇÕES", "🚀 DISPARO SNIPER", "⚙️ CONFIGURAÇÕES"])
 
-with tab1:
-    st.markdown("### CAÇADOR DE OPORTUNIDADES B2B")
-    c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
-    with c1: origem = st.selectbox("Onde buscar", list(SUGESTOES_STRATEGICAS.keys()))
-    with c2: termo = st.text_input("Intenção de busca", placeholder="Ex preciso de site")
-    with c3: tempo = st.selectbox("Período", ["Últimas 24 Horas", "Última Semana", "Último Mês", "Qualquer data"])
-    with c4: qtd = st.number_input("Qtd", 1, 50, 10)
-    btn = st.button("RASTREAR COMPRADORES", key="btn_radar")
+    with tab1:
+        st.markdown("### CAÇADOR DE OPORTUNIDADES B2B")
+        c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
+        with c1: origem = st.selectbox("Onde buscar", list(SUGESTOES_STRATEGICAS.keys()))
+        with c2: termo = st.text_input("Intenção de busca", placeholder="Ex preciso de site")
+        with c3: tempo = st.selectbox("Período", ["Últimas 24 Horas", "Última Semana", "Último Mês", "Qualquer data"])
+        with c4: qtd = st.number_input("Qtd", 1, 50, 10)
+        btn = st.button("RASTREAR COMPRADORES", key="btn_radar")
 
-    if btn and termo:
-        if not (GROQ_API_KEY and SERPER_API_KEY): st.error("Configure as chaves.")
-        else:
-            periodo_api = "qdr:d" if "24 Horas" in tempo else "qdr:w" if "Semana" in tempo else "qdr:m" if "Mês" in tempo else ""
-            query_final = f'site:linkedin.com/posts "{termo}"' if origem == "LinkedIn" else f'(site:workana.com OR site:99freelas.com.br) "{termo}"' if origem == "Sites de Freelance" else f'"{termo}"'
-            resultados = search_google_serper(query_final, periodo_api, qtd)
-            if not resultados: st.warning("Nenhum sinal encontrado.")
+        if btn and termo:
+            if not (GROQ_API_KEY and SERPER_API_KEY): st.error("Configure as chaves.")
             else:
-                prog = st.progress(0)
-                processed_results = []
-                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                    future_to_item = {executor.submit(process_single_item, item, st.session_state.system_prompt_padrao): item for item in resultados}
-                    completed = 0
-                    for future in concurrent.futures.as_completed(future_to_item):
-                        try: processed_results.append(future.result())
-                        except: pass
-                        completed += 1
-                        prog.progress(completed / len(resultados))
-                
-                processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
-                for p in processed_results:
-                    analise = p['analise']
-                    score = analise.get('score', 0)
-                    if score < 50: continue
-                    autor = analise.get('autor', 'Desconhecido')
-                    css_class = "score-hot" if score >= 80 else "score-warm"
-                    
-                    st.markdown(f'<div class="lead-card {css_class}"><div><span style="color:var(--blue); font-weight:bold;">SCORE {score}</span> <span class="tag-nicho">Autor {autor}</span></div><div style="margin-top:10px;"><a href="{p["link"]}" target="_blank" class="lead-title">{p["titulo"]}</a></div><div class="recommendation-box"><div style="color:var(--text-main); font-weight:bold;">OFERTAR {analise.get("produto_recomendado", "N/A").upper()}</div><div class="rec-text">{analise.get("resumo_post", "")}</div></div></div>', unsafe_allow_html=True)
-                    if st.button(f"Salvar {autor} no CRM", key=f"save_{p['link']}"):
-                        salvar_lead_crm(token, user_id, {"nome": autor, "origem": "Radar", "url": p["link"], "obs": analise.get("resumo_post", "")})
-                        st.success("Salvo no CRM")
-                        time.sleep(1)
-                        st.rerun()
-
-with tab2:
-    st.markdown("### EXTRATOR DE CONTATOS LOCAIS")
-    c1, c2, c3 = st.columns([2, 2, 2])
-    with c1: nicho = st.text_input("Nicho", value="Clínica Odontológica")
-    with c2: cidade = st.text_input("Cidade Base", value="São Paulo")
-    with c3: fonte_alvo = st.selectbox("Fonte Específica", list(FONTES_MINERADOR.keys()))
-    bairros_txt = st.text_area("Lista de Bairros Separados por vírgula", value="Centro, Pinheiros", height=80)
-    
-    if "leads_isolados" not in st.session_state: st.session_state["leads_isolados"] = []
-    
-    if st.button("INICIAR EXTRAÇÃO", key="btn_zap_mine"):
-        lista_bairros = [b.strip() for b in bairros_txt.split(',') if b.strip()]
-        novos_leads = []
-        bar = st.progress(0)
-        prefixo_fonte = FONTES_MINERADOR[fonte_alvo]
-        
-        telefones_db = df['telefone'].dropna().astype(str).tolist() if not df.empty and 'telefone' in df.columns else []
-        emails_db = df['email'].dropna().astype(str).tolist() if not df.empty and 'email' in df.columns else []
-        
-        for i, bairro in enumerate(lista_bairros):
-            query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
-            for q in [f'{query_base} "whatsapp"', f'{query_base} "@gmail.com" OR "@hotmail.com"']:
-                resultados = search_google_serper(q.strip(), period="", num_results=20)
-                for r in resultados:
-                    texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
-                    zap = extrair_whatsapp(texto_completo)
-                    email = extrair_email(texto_completo)
-                    if zap or email:
-                        exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
-                        exists_new = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
-                        exists_db = (zap and zap in telefones_db) or (email and email in emails_db)
-                        
-                        if not exists_local and not exists_new and not exists_db:
-                            novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Whatsapp": zap if zap else "", "Email": email if email else "", "Fonte": fonte_alvo, "Link": r.get('link')})
-            bar.progress((i + 1) / len(lista_bairros))
-            time.sleep(0.5) 
-        if novos_leads:
-            st.session_state["leads_isolados"].extend(novos_leads)
-            st.success(f"{len(novos_leads)} CONTATOS INÉDITOS ENCONTRADOS")
-    
-    if st.session_state["leads_isolados"]:
-        df_mine = pd.DataFrame(st.session_state["leads_isolados"])
-        st.dataframe(df_mine, width='stretch')
-        if st.button("SALVAR TODOS NO CRM"):
-            df_atual = carregar_dados(token, user_id)
-            telefones_db = df_atual['telefone'].dropna().astype(str).tolist() if not df_atual.empty and 'telefone' in df_atual.columns else []
-            emails_db = df_atual['email'].dropna().astype(str).tolist() if not df_atual.empty and 'email' in df_atual.columns else []
-            
-            salvos = 0
-            duplicados = 0
-            for _, row in df_mine.iterrows():
-                zap_row = str(row["Whatsapp"]).strip()
-                email_row = str(row["Email"]).strip()
-                
-                is_dup_zap = zap_row and zap_row in telefones_db
-                is_dup_email = email_row and email_row in emails_db
-                
-                if is_dup_zap or is_dup_email:
-                    duplicados += 1
-                    continue
-                    
-                salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"]})
-                salvos += 1
-                if zap_row: telefones_db.append(zap_row)
-                if email_row: emails_db.append(email_row)
-                
-            if duplicados > 0:
-                st.warning(f"Ignorados {duplicados} contatos que ja estavam no CRM")
-            st.success(f"{salvos} novos contatos enviados para o banco de dados")
-            st.session_state["leads_isolados"] = []
-            time.sleep(2)
-            st.rerun()
-
-with tab3:
-    with st.expander("FILTRAR E PERSONALIZAR TABELA", expanded=True):
-        f_c1, f_c2 = st.columns([1, 1])
-        with f_c1:
-            all_cols = list(df.columns)
-            if 'cols_visiveis_save' not in st.session_state: st.session_state['cols_visiveis_save'] = all_cols
-            cols_visiveis = st.multiselect("Escolha e ordene as colunas", all_cols, default=st.session_state['cols_visiveis_save'])
-            if cols_visiveis != st.session_state['cols_visiveis_save']: st.session_state['cols_visiveis_save'] = cols_visiveis; st.rerun()
-        with f_c2:
-            col_para_filtrar = st.selectbox("Filtrar na coluna", ["Sem Filtro"] + all_cols)
-            filtro_valores = []
-            if col_para_filtrar != "Sem Filtro":
-                valores_unicos = [str(x) for x in df[col_para_filtrar].unique()]
-                filtro_valores = st.multiselect(f"Selecione valores de {col_para_filtrar}", valores_unicos)
-    
-    df_visual = df.copy()
-    if col_para_filtrar != "Sem Filtro" and filtro_valores: df_visual = df_visual[df_visual[col_para_filtrar].astype(str).isin(filtro_valores)]
-    if cols_visiveis:
-        cols_final = [c for c in cols_visiveis]
-        if 'id' not in cols_final and 'id' in df_visual.columns: cols_final.append('id')
-        df_visual = df_visual[cols_final]
-
-    sub_t1, sub_t2 = st.tabs(["TABELA MESTRE", "TABELA BOT"])
-    with sub_t1:
-        col_config = {'id': st.column_config.Column("id", disabled=True, hidden=True)} if 'id' in df_visual.columns and 'id' not in cols_visiveis else {}
-        edited = st.data_editor(df_visual, num_rows="dynamic", width='stretch', key="editor", column_config=col_config)
-        if st.button("SALVAR ALTERACOES NA BASE"):
-            chg = st.session_state["editor"]
-            for idx in chg.get("deleted_rows", []):
-                try: requests.delete(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}/{df_visual.iloc[idx]['id']}", headers={"Authorization": f"Bearer {token}"}, verify=False)
-                except: pass
-            for idx, row in chg["edited_rows"].items():
-                try: atualizar_item(token, user_id, df_visual.iloc[int(idx)]['id'], row)
-                except: pass
-            max_id = 0
-            df_fresh = carregar_dados(token, user_id)
-            if not df_fresh.empty and 'id' in df_fresh.columns: max_id = pd.to_numeric(df_fresh['id'], errors='coerce').max()
-            proximo_id = int(max_id) + 1 if not pd.isna(max_id) else 1
-            for row in chg["added_rows"]:
-                if 'id' not in row or not row['id']: row['id'] = proximo_id; proximo_id += 1
-                requests.post(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}", json=row, headers={"Authorization": f"Bearer {token}"}, verify=False)
-            st.toast("Dados atualizados", icon="✅")
-            time.sleep(1)
-            st.rerun()
-    with sub_t2:
-        st.dataframe(df_bot, width='stretch', height=400)
-
-    st.divider()
-    st.markdown("### AÇÕES RÁPIDAS LINHA UNICA")
-    col_fonte, col_cli, col_vazio = st.columns([1, 2, 3])
-    with col_fonte: fonte = st.radio("Fonte de Dados", ["Base Mestre", "Bot Automático"], horizontal=True)
-    df_ativo = df if fonte == "Base Mestre" else df_bot
-    with col_cli: sel_cli = st.selectbox("Selecione o Cliente para Agir", ["Selecione"] + (df_ativo['nome'].tolist() if not df_ativo.empty and 'nome' in df_ativo.columns else []))
-    
-    if sel_cli != "Selecione" and not df_ativo.empty:
-        dados_cli = df_ativo[df_ativo['nome'] == sel_cli].iloc[0]
-        act_c1, act_c2 = st.columns(2)
-        with act_c1:
-            st.markdown("#### WHATSAPP")
-            if st.button("GERAR TEXTO ZAP IA"): st.session_state['ai_zap_text'] = gerar_whatsapp_ia(st.session_state.get('ctx', {}), dados_cli); st.rerun()
-            msg_zap = st.text_area("Mensagem", value=st.session_state.get('ai_zap_text', "Olá tudo bem"), height=100)
-            nums = re.sub(r'\D', '', str(dados_cli.get('telefone', '')))
-            if nums: st.link_button("ENVIAR WHATSAPP", f"https://api.whatsapp.com/send?phone={nums if nums.startswith('55') and len(nums) > 11 else '55'+nums}&text={urllib.parse.quote(msg_zap)}", width='stretch')
-        with act_c2:
-            st.markdown("#### GMAIL IA")
-            if st.button("GERAR TEXTO COM IA"):
-                assunto_ia, corpo_ia = gerar_copy_ia(st.session_state.get('ctx', {}), dados_cli)
-                st.link_button("ABRIR NO GMAIL", f"https://mail.google.com/mail/?view=cm&fs=1&to={dados_cli.get('email', '')}&su={urllib.parse.quote(assunto_ia)}&body={urllib.parse.quote(corpo_ia.replace('{nome}', dados_cli.get('nome', '')))}", width='stretch')
-
-with tab4:
-    st.markdown("### DISPARO EM MASSA EMAIL E WHATSAPP")
-    
-    subtab_int, subtab_ext = st.tabs(["[ 1 ] DISPARO INTERNO DO CRM", "[ 2 ] IMPORTAR EXCEL EXTERNO"])
-    
-    with subtab_int:
-        if not df.empty and not df_bot.empty:
-            df_temp = df.copy()
-            df_temp['fonte_dados'] = 'Mestre'
-            df_bot_temp = df_bot.copy()
-            df_bot_temp['fonte_dados'] = 'Bot'
-            df_unificado = pd.concat([df_temp, df_bot_temp], ignore_index=True)
-        elif not df.empty:
-            df_unificado = df.copy()
-            df_unificado['fonte_dados'] = 'Mestre'
-        elif not df_bot.empty:
-            df_unificado = df_bot.copy()
-            df_unificado['fonte_dados'] = 'Bot'
-        else:
-            df_unificado = pd.DataFrame()
-        
-        ocultar_enviados = st.checkbox("Ocultar contatos já enviados Proteção contra duplicidade", value=True)
-        if ocultar_enviados and not df_unificado.empty and 'status' in df_unificado.columns:
-            df_unificado = df_unificado[df_unificado['status'] != "ENVIADO EM MASSA"]
-
-        if not df_unificado.empty:
-            with st.expander("🔍 FILTRAR LISTA DE DISPARO", expanded=True):
-                f_col1, f_col2, f_col3 = st.columns(3)
-                with f_col1:
-                    opcoes_origem = [x for x in df_unificado['origem'].dropna().astype(str).unique() if x.strip() != ''] if 'origem' in df_unificado.columns else []
-                    filtro_origem = st.multiselect("Filtrar por Origem", opcoes_origem)
-                with f_col2:
-                    opcoes_ramo = [x for x in df_unificado['ramo'].dropna().astype(str).unique() if x.strip() != ''] if 'ramo' in df_unificado.columns else []
-                    filtro_ramo = st.multiselect("Filtrar por Ramo", opcoes_ramo)
-                with f_col3:
-                    opcoes_status = [x for x in df_unificado['status'].dropna().astype(str).unique() if x.strip() != ''] if 'status' in df_unificado.columns else []
-                    filtro_status = st.multiselect("Filtrar por Status", opcoes_status)
-                    
-                if filtro_origem: df_unificado = df_unificado[df_unificado['origem'].astype(str).isin(filtro_origem)]
-                if filtro_ramo: df_unificado = df_unificado[df_unificado['ramo'].astype(str).isin(filtro_ramo)]
-                if filtro_status: df_unificado = df_unificado[df_unificado['status'].astype(str).isin(filtro_status)]
-            
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            metodo_envio = st.radio("MÉTODO DE DISPARO", ["Email SMTP", "WhatsApp Baileys API"], horizontal=True)
-            
-            if not df_unificado.empty:
-                if metodo_envio == "Email SMTP":
-                    if 'email' in df_unificado.columns:
-                        df_unificado = df_unificado[df_unificado['email'].astype(str).str.strip().str.lower().isin(['nan', 'none', '']) == False]
-                    else:
-                        df_unificado = pd.DataFrame()
+                periodo_api = "qdr:d" if "24 Horas" in tempo else "qdr:w" if "Semana" in tempo else "qdr:m" if "Mês" in tempo else ""
+                query_final = f'site:linkedin.com/posts "{termo}"' if origem == "LinkedIn" else f'(site:workana.com OR site:99freelas.com.br) "{termo}"' if origem == "Sites de Freelance" else f'"{termo}"'
+                resultados = search_google_serper(query_final, periodo_api, qtd)
+                if not resultados: st.warning("Nenhum sinal encontrado.")
                 else:
-                    if 'telefone' in df_unificado.columns:
-                        df_unificado = df_unificado[df_unificado['telefone'].astype(str).str.strip().str.lower().isin(['nan', 'none', '']) == False]
-                    else:
-                        df_unificado = pd.DataFrame()
+                    prog = st.progress(0)
+                    processed_results = []
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                        future_to_item = {executor.submit(process_single_item, item, st.session_state.system_prompt_padrao): item for item in resultados}
+                        completed = 0
+                        for future in concurrent.futures.as_completed(future_to_item):
+                            try: processed_results.append(future.result())
+                            except: pass
+                            completed += 1
+                            prog.progress(completed / len(resultados))
+                    
+                    processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
+                    for p in processed_results:
+                        analise = p['analise']
+                        score = analise.get('score', 0)
+                        if score < 50: continue
+                        autor = analise.get('autor', 'Desconhecido')
+                        css_class = "score-hot" if score >= 80 else "score-warm"
+                        
+                        st.markdown(f'<div class="lead-card {css_class}"><div><span style="color:var(--blue); font-weight:bold;">SCORE {score}</span> <span class="tag-nicho">Autor {autor}</span></div><div style="margin-top:10px;"><a href="{p["link"]}" target="_blank" class="lead-title">{p["titulo"]}</a></div><div class="recommendation-box"><div style="color:var(--text-main); font-weight:bold;">OFERTAR {analise.get("produto_recomendado", "N/A").upper()}</div><div class="rec-text">{analise.get("resumo_post", "")}</div></div></div>', unsafe_allow_html=True)
+                        if st.button(f"Salvar {autor} no CRM", key=f"save_{p['link']}"):
+                            salvar_lead_crm(token, user_id, {"nome": autor, "origem": "Radar", "url": p["link"], "obs": analise.get("resumo_post", "")})
+                            st.success("Salvo no CRM")
+                            time.sleep(1)
+                            st.rerun()
+
+    with tab2:
+        st.markdown("### EXTRATOR DE CONTATOS LOCAIS")
+        c1, c2, c3 = st.columns([2, 2, 2])
+        with c1: nicho = st.text_input("Nicho", value="Clínica Odontológica")
+        with c2: cidade = st.text_input("Cidade Base", value="São Paulo")
+        with c3: fonte_alvo = st.selectbox("Fonte Específica", list(FONTES_MINERADOR.keys()))
+        bairros_txt = st.text_area("Lista de Bairros Separados por vírgula", value="Centro, Pinheiros", height=80)
+        
+        if "leads_isolados" not in st.session_state: st.session_state["leads_isolados"] = []
+        
+        if st.button("INICIAR EXTRAÇÃO", key="btn_zap_mine"):
+            lista_bairros = [b.strip() for b in bairros_txt.split(',') if b.strip()]
+            novos_leads = []
+            bar = st.progress(0)
+            prefixo_fonte = FONTES_MINERADOR[fonte_alvo]
+            
+            telefones_db = df['telefone'].dropna().astype(str).tolist() if not df.empty and 'telefone' in df.columns else []
+            emails_db = df['email'].dropna().astype(str).tolist() if not df.empty and 'email' in df.columns else []
+            
+            for i, bairro in enumerate(lista_bairros):
+                query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
+                for q in [f'{query_base} "whatsapp"', f'{query_base} "@gmail.com" OR "@hotmail.com"']:
+                    resultados = search_google_serper(q.strip(), period="", num_results=20)
+                    for r in resultados:
+                        texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
+                        zap = extrair_whatsapp(texto_completo)
+                        email = extrair_email(texto_completo)
+                        if zap or email:
+                            exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
+                            exists_new = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
+                            exists_db = (zap and zap in telefones_db) or (email and email in emails_db)
+                            
+                            if not exists_local and not exists_new and not exists_db:
+                                novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Whatsapp": zap if zap else "", "Email": email if email else "", "Fonte": fonte_alvo, "Link": r.get('link')})
+                bar.progress((i + 1) / len(lista_bairros))
+                time.sleep(0.5) 
+            if novos_leads:
+                st.session_state["leads_isolados"].extend(novos_leads)
+                st.success(f"{len(novos_leads)} CONTATOS INÉDITOS ENCONTRADOS")
+        
+        if st.session_state["leads_isolados"]:
+            df_mine = pd.DataFrame(st.session_state["leads_isolados"])
+            st.dataframe(df_mine, width='stretch')
+            if st.button("SALVAR TODOS NO CRM"):
+                df_atual = carregar_dados(token, user_id)
+                telefones_db = df_atual['telefone'].dropna().astype(str).tolist() if not df_atual.empty and 'telefone' in df_atual.columns else []
+                emails_db = df_atual['email'].dropna().astype(str).tolist() if not df_atual.empty and 'email' in df_atual.columns else []
+                
+                salvos = 0
+                duplicados = 0
+                for _, row in df_mine.iterrows():
+                    zap_row = str(row["Whatsapp"]).strip()
+                    email_row = str(row["Email"]).strip()
+                    
+                    is_dup_zap = zap_row and zap_row in telefones_db
+                    is_dup_email = email_row and email_row in emails_db
+                    
+                    if is_dup_zap or is_dup_email:
+                        duplicados += 1
+                        continue
+                        
+                    salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"]})
+                    salvos += 1
+                    if zap_row: telefones_db.append(zap_row)
+                    if email_row: emails_db.append(email_row)
+                    
+                if duplicados > 0:
+                    st.warning(f"Ignorados {duplicados} contatos que ja estavam no CRM")
+                st.success(f"{salvos} novos contatos enviados para o banco de dados")
+                st.session_state["leads_isolados"] = []
+                time.sleep(2)
+                st.rerun()
+
+    with tab3:
+        with st.expander("FILTRAR E PERSONALIZAR TABELA", expanded=True):
+            f_c1, f_c2 = st.columns([1, 1])
+            with f_c1:
+                all_cols = list(df.columns)
+                if 'cols_visiveis_save' not in st.session_state: st.session_state['cols_visiveis_save'] = all_cols
+                st.session_state['cols_visiveis_save'] = [c for c in st.session_state['cols_visiveis_save'] if c in all_cols]
+                cols_visiveis = st.multiselect("Escolha e ordene as colunas", all_cols, default=st.session_state['cols_visiveis_save'])
+                if cols_visiveis != st.session_state['cols_visiveis_save']: st.session_state['cols_visiveis_save'] = cols_visiveis; st.rerun()
+            with f_c2:
+                col_para_filtrar = st.selectbox("Filtrar na coluna", ["Sem Filtro"] + all_cols)
+                filtro_valores = []
+                if col_para_filtrar != "Sem Filtro":
+                    valores_unicos = [str(x) for x in df[col_para_filtrar].unique()]
+                    filtro_valores = st.multiselect(f"Selecione valores de {col_para_filtrar}", valores_unicos)
+        
+        df_visual = df.copy()
+        if col_para_filtrar != "Sem Filtro" and filtro_valores: df_visual = df_visual[df_visual[col_para_filtrar].astype(str).isin(filtro_valores)]
+        if cols_visiveis:
+            cols_final = [c for c in cols_visiveis]
+            if 'id' not in cols_final and 'id' in df_visual.columns: cols_final.append('id')
+            df_visual = df_visual[cols_final]
+
+        sub_t1, sub_t2 = st.tabs(["TABELA MESTRE", "TABELA BOT"])
+        with sub_t1:
+            col_config = {'id': st.column_config.Column("id", disabled=True, hidden=True)} if 'id' in df_visual.columns and 'id' not in cols_visiveis else {}
+            edited = st.data_editor(df_visual, num_rows="dynamic", width='stretch', key="editor", column_config=col_config)
+            if st.button("SALVAR ALTERACOES NA BASE"):
+                chg = st.session_state["editor"]
+                for idx in chg.get("deleted_rows", []):
+                    try: requests.delete(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}/{df_visual.iloc[idx]['id']}", headers={"Authorization": f"Bearer {token}"}, verify=False)
+                    except: pass
+                for idx, row in chg["edited_rows"].items():
+                    try: atualizar_item(token, user_id, df_visual.iloc[int(idx)]['id'], row)
+                    except: pass
+                max_id = 0
+                df_fresh = carregar_dados(token, user_id)
+                if not df_fresh.empty and 'id' in df_fresh.columns: max_id = pd.to_numeric(df_fresh['id'], errors='coerce').max()
+                proximo_id = int(max_id) + 1 if not pd.isna(max_id) else 1
+                for row in chg["added_rows"]:
+                    if 'id' not in row or not row['id']: row['id'] = proximo_id; proximo_id += 1
+                    requests.post(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}", json=row, headers={"Authorization": f"Bearer {token}"}, verify=False)
+                st.toast("Dados atualizados", icon="✅")
+                time.sleep(1)
+                st.rerun()
+        with sub_t2:
+            st.dataframe(df_bot, width='stretch', height=400)
+
+        st.divider()
+        st.markdown("### AÇÕES RÁPIDAS LINHA UNICA")
+        col_fonte, col_cli, col_vazio = st.columns([1, 2, 3])
+        with col_fonte: fonte = st.radio("Fonte de Dados", ["Base Mestre", "Bot Automático"], horizontal=True)
+        df_ativo = df if fonte == "Base Mestre" else df_bot
+        with col_cli: sel_cli = st.selectbox("Selecione o Cliente para Agir", ["Selecione"] + (df_ativo['nome'].tolist() if not df_ativo.empty and 'nome' in df_ativo.columns else []))
+        
+        if sel_cli != "Selecione" and not df_ativo.empty:
+            dados_cli = df_ativo[df_ativo['nome'] == sel_cli].iloc[0]
+            act_c1, act_c2 = st.columns(2)
+            with act_c1:
+                st.markdown("#### WHATSAPP")
+                if st.button("GERAR TEXTO ZAP IA"): st.session_state['ai_zap_text'] = gerar_whatsapp_ia(st.session_state.get('ctx', {}), dados_cli); st.rerun()
+                msg_zap = st.text_area("Mensagem", value=st.session_state.get('ai_zap_text', "Olá tudo bem"), height=100)
+                nums = re.sub(r'\D', '', str(dados_cli.get('telefone', '')))
+                if nums: st.link_button("ENVIAR WHATSAPP", f"https://api.whatsapp.com/send?phone={nums if nums.startswith('55') and len(nums) > 11 else '55'+nums}&text={urllib.parse.quote(msg_zap)}", width='stretch')
+            with act_c2:
+                st.markdown("#### GMAIL IA")
+                if st.button("GERAR TEXTO COM IA"):
+                    assunto_ia, corpo_ia = gerar_copy_ia(st.session_state.get('ctx', {}), dados_cli)
+                    st.link_button("ABRIR NO GMAIL", f"https://mail.google.com/mail/?view=cm&fs=1&to={dados_cli.get('email', '')}&su={urllib.parse.quote(assunto_ia)}&body={urllib.parse.quote(corpo_ia.replace('{nome}', dados_cli.get('nome', '')))}", width='stretch')
+
+    with tab4:
+        st.markdown("### DISPARO EM MASSA EMAIL E WHATSAPP")
+        
+        subtab_int, subtab_ext = st.tabs(["[ 1 ] DISPARO INTERNO DO CRM", "[ 2 ] IMPORTAR EXCEL EXTERNO"])
+        
+        with subtab_int:
+            if not df.empty and not df_bot.empty:
+                df_temp = df.copy()
+                df_temp['fonte_dados'] = 'Mestre'
+                df_bot_temp = df_bot.copy()
+                df_bot_temp['fonte_dados'] = 'Bot'
+                df_unificado = pd.concat([df_temp, df_bot_temp], ignore_index=True)
+            elif not df.empty:
+                df_unificado = df.copy()
+                df_unificado['fonte_dados'] = 'Mestre'
+            elif not df_bot.empty:
+                df_unificado = df_bot.copy()
+                df_unificado['fonte_dados'] = 'Bot'
+            else:
+                df_unificado = pd.DataFrame()
+            
+            ocultar_enviados = st.checkbox("Ocultar contatos já enviados Proteção contra duplicidade", value=True)
+            if ocultar_enviados and not df_unificado.empty and 'status' in df_unificado.columns:
+                df_unificado = df_unificado[df_unificado['status'] != "ENVIADO EM MASSA"]
+
+            if not df_unificado.empty:
+                with st.expander("🔍 FILTRAR LISTA DE DISPARO", expanded=True):
+                    f_col1, f_col2, f_col3 = st.columns(3)
+                    with f_col1:
+                        opcoes_origem = [x for x in df_unificado['origem'].dropna().astype(str).unique() if x.strip() != ''] if 'origem' in df_unificado.columns else []
+                        filtro_origem = st.multiselect("Filtrar por Origem", opcoes_origem)
+                    with f_col2:
+                        opcoes_ramo = [x for x in df_unificado['ramo'].dropna().astype(str).unique() if x.strip() != ''] if 'ramo' in df_unificado.columns else []
+                        filtro_ramo = st.multiselect("Filtrar por Ramo", opcoes_ramo)
+                    with f_col3:
+                        opcoes_status = [x for x in df_unificado['status'].dropna().astype(str).unique() if x.strip() != ''] if 'status' in df_unificado.columns else []
+                        filtro_status = st.multiselect("Filtrar por Status", opcoes_status)
+                        
+                    if filtro_origem: df_unificado = df_unificado[df_unificado['origem'].astype(str).isin(filtro_origem)]
+                    if filtro_ramo: df_unificado = df_unificado[df_unificado['ramo'].astype(str).isin(filtro_ramo)]
+                    if filtro_status: df_unificado = df_unificado[df_unificado['status'].astype(str).isin(filtro_status)]
+                
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                metodo_envio = st.radio("MÉTODO DE DISPARO", ["Email SMTP", "WhatsApp Baileys API"], horizontal=True)
                 
                 if not df_unificado.empty:
-                    def make_label(r):
-                        emp = str(r.get('empresa', ''))
-                        nm = str(r.get('nome', ''))
-                        if emp.lower() == 'nan' or not emp.strip(): emp = 'Sem Empresa'
-                        if nm.lower() == 'nan' or not nm.strip(): nm = 'Sem Nome'
-                        return f"Empresa: {emp} | Nome: {nm} | {r.get('fonte_dados', '')}"
-                    df_unificado['label'] = df_unificado.apply(make_label, axis=1)
-            
-            modo_lote = st.checkbox("⚡ Enviar Lote de 10 Automático (Status Novo)?", value=True)
-            if modo_lote:
-                alvos_pre = []
-                if not df_unificado.empty and 'status' in df_unificado.columns:
-                    df_novos = df_unificado[df_unificado['status'].astype(str).str.upper() == 'NOVO']
-                    alvos_pre = df_novos['label'].tolist()[:10]
-                alvos_finais = st.multiselect("ALVOS SELECIONADOS AUTOMATICAMENTE", alvos_pre, default=alvos_pre, disabled=True)
-            else:
-                alvos_finais = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
+                    if metodo_envio == "Email SMTP":
+                        if 'email' in df_unificado.columns:
+                            df_unificado = df_unificado[df_unificado['email'].astype(str).str.strip().str.lower().isin(['nan', 'none', '']) == False]
+                        else:
+                            df_unificado = pd.DataFrame()
+                    else:
+                        if 'telefone' in df_unificado.columns:
+                            df_unificado = df_unificado[df_unificado['telefone'].astype(str).str.strip().str.lower().isin(['nan', 'none', '']) == False]
+                        else:
+                            df_unificado = pd.DataFrame()
+                    
+                    if not df_unificado.empty:
+                        def make_label(r):
+                            emp = str(r.get('empresa', ''))
+                            nm = str(r.get('nome', ''))
+                            if emp.lower() == 'nan' or not emp.strip(): emp = 'Sem Empresa'
+                            if nm.lower() == 'nan' or not nm.strip(): nm = 'Sem Nome'
+                            return f"Empresa: {emp} | Nome: {nm} | {r.get('fonte_dados', '')}"
+                        df_unificado['label'] = df_unificado.apply(make_label, axis=1)
                 
-        with c2:
-            if metodo_envio == "Email SMTP":
-                assunto = st.text_input("ASSUNTO", key="ass_massa")
-                st.caption("Dica: Use {{imagem}} no texto para inserir a imagem inline no corpo do e-mail.")
-                corpo = st.text_area("CORPO HTML (Use {nome}, {empresa})", height=150, key="body_massa")
-                file_anexo = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_int_email")
-                if st.button("GERAR COPY EMAIL IA"): sug_a, sug_c = gerar_copy_ia(st.session_state.get('ctx', {})); st.info(sug_a); st.code(sug_c)
-            else:
-                msg_wpp_massa = st.text_area("MENSAGEM WHATSAPP (Use {nome}, {empresa})", value="Opa {nome} tudo bem", height=150)
-                file_anexo_wpp = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_int")
-                st.info("O envio usa as travas de proteção da aba Configuração")
-                tracking = get_tracking_data(user_id)
-                st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
-
-        if st.button("🚀 INICIAR DISPARO EM MASSA"):
-            bar = st.progress(0)
-            log = st.empty()
-            
-            if metodo_envio == "Email SMTP":
-                if not st.session_state.get('smtp') or not st.session_state['smtp'].get('host'): 
-                    st.error("CONFIGURE O SMTP NA ABA CONFIGURAÇÕES GERAIS")
-                elif len(alvos_finais) > saldo_envios: st.error("SELEÇÃO MAIOR QUE SALDO")
+                modo_lote = st.checkbox("⚡ Enviar Lote de 10 Automático (Status Novo)?", value=True)
+                if modo_lote:
+                    alvos_pre = []
+                    if not df_unificado.empty and 'status' in df_unificado.columns:
+                        df_novos = df_unificado[df_unificado['status'].astype(str).str.upper() == 'NOVO']
+                        alvos_pre = df_novos['label'].tolist()[:10]
+                    alvos_finais = st.multiselect("ALVOS SELECIONADOS AUTOMATICAMENTE", alvos_pre, default=alvos_pre, disabled=True)
                 else:
-                    for i, label_sel in enumerate(alvos_finais):
-                        tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
-                        email_real = str(tgt.get('email', '')).strip()
-                        if not email_real or "@" not in email_real or email_real.lower() == 'nan':
-                            log.warning(f"Sem email valido para {label_sel}")
-                            continue
-                            
-                        assunto_final = assunto.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())    
-                        
-                        log_id = registrar_log_envio(token, email_real, assunto_final, "Enviando")
-                        url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id and TRACKING_WEBHOOK_KEY else None
-                        
-                        texto_final = corpo.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
-                        
-                        res, txt = enviar_email_smtp(st.session_state['smtp'], email_real, assunto_final, texto_final, file_anexo, url_pixel)
-                        if log_id: atualizar_status_envio(token, log_id, "Enviado" if res else f"Erro {txt}")
-                        if res and tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
-                        
-                        if res:
-                            log.success(f"ENVIADO PARA {email_real}")
-                        else:
-                            log.error(f"ERRO {email_real}")
-                            
-                        time.sleep(random.randint(5, 15))
-                        bar.progress((i+1)/len(alvos_finais))
-            
-            elif metodo_envio == "WhatsApp Baileys API":
-                tracking = get_tracking_data(user_id)
-                daily_limit = get_daily_limit(tracking["start_date"])
-                today_str = str(date.today())
-                current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
-                
-                if tracking["last_run_date"] != today_str: tracking["sent_today"] = 0; tracking["last_run_date"] = today_str
-                if tracking["last_run_hour"] != current_hour_str: tracking["sent_this_hour"] = 0; tracking["last_run_hour"] = current_hour_str
-
-                for i, label_sel in enumerate(alvos_finais):
-                    if tracking["sent_today"] >= daily_limit: st.warning("Limite diário atingido"); break
-                    if tracking["sent_this_hour"] >= 10: st.warning("Limite de hora atingido"); break
+                    alvos_finais = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
                     
-                    tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
-                    numero = extrair_whatsapp(str(tgt.get('telefone', '')))
-                    if not numero or numero.lower() == 'nan':
-                        log.warning(f"Sem WhatsApp para {label_sel}")
-                        continue
-                    
-                    try:
-                        msg_final_wpp = msg_wpp_massa.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
-                        
-                        payload = {"number": numero, "message": msg_final_wpp}
-                        
-                        if file_anexo_wpp is not None:
-                            img_base64 = base64.b64encode(file_anexo_wpp.getvalue()).decode('utf-8')
-                            payload["image"] = img_base64
-                            
-                        res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
-                        if res.status_code == 200:
-                            tracking["sent_today"] += 1
-                            tracking["sent_this_hour"] += 1
-                            save_tracking_data(user_id, tracking)
-                            log.success(f"WPP ENVIADO PARA {numero}")
-                            if tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
-                        else: log.error("Erro na API do Baileys")
-                    except: log.error("Falha de conexão com disparador")
-                    
-                    time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
-                    bar.progress((i+1)/len(alvos_finais))
-
-    with subtab_ext:
-        st.markdown("### 📂 UPLOAD DE LISTA (EXCEL .xlsx)")
-        up_file = st.file_uploader("ARQUIVO EXCEL (Colunas obrigatórias: nome, email ou telefone)", type=["xlsx"])
-        
-        if up_file:
-            try:
-                df_ext = pd.read_excel(up_file)
-                df_ext.columns = [str(c).lower().strip() for c in df_ext.columns]
-                
-                st.dataframe(df_ext.head(), width='stretch')
-                st.info(f"{len(df_ext)} LEADS ENCONTRADOS NO ARQUIVO")
-
-                col_imp_btn, col_imp_info = st.columns([1, 2])
-                with col_imp_btn:
-                    if st.button("💾 IMPORTAR LISTA PARA O CRM", type="primary"):
-                        progress_text = "Importando leads para o banco de dados..."
-                        my_bar = st.progress(0, text=progress_text)
-                        
-                        table_name = get_user_table_name(user_id)
-                        base_url = DIRECTUS_URL.rstrip('/')
-                        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-                        
-                        total_imp = len(df_ext)
-                        sucesso_imp = 0
-                        
-                        for idx, row in df_ext.iterrows():
-                            payload = {"status": "Novo"}
-                            for col in df_ext.columns:
-                                slug = col.replace(' ', '_').replace('ç', 'c').replace('ã', 'a')
-                                val = row[col]
-                                if pd.isna(val): val = ""
-                                payload[slug] = str(val)
-
-                            try:
-                                r_imp = requests.post(f"{base_url}/items/{table_name}", json=payload, headers=headers, verify=False)
-                                if r_imp.status_code in [200, 204]:
-                                    sucesso_imp += 1
-                            except:
-                                pass
-                            
-                            my_bar.progress((idx + 1) / total_imp)
-                        
-                        my_bar.empty()
-                        st.success(f"✅ IMPORTAÇÃO CONCLUÍDA! {sucesso_imp} LEADS SALVOS NO CRM.")
-                        time.sleep(2)
-                        st.rerun()
-
-                st.markdown("---")
-                
-                st.markdown("#### 🚀 DISPARO DIRETO DA LISTA EXTERNA")
-                metodo_envio_ext = st.radio("MÉTODO DE DISPARO EXTERNO", ["Email SMTP", "WhatsApp Baileys API"], horizontal=True, key="metodo_ext")
-                
-                if metodo_envio_ext == "Email SMTP":
-                    assunto_ext = st.text_input("ASSUNTO", key="ass_ext")
-                    st.caption("Dica: Use {{imagem}} no texto para inserir a imagem no corpo.")
-                    corpo_ext = st.text_area("CORPO HTML (Use {nome}, {empresa})", height=150, key="body_ext")
-                    file_anexo_ext = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_ext_up_email")
-                    
-                    if st.button("✨ GERAR COM IA (GROQ) - EXT"):
-                        sug_a, sug_c = gerar_copy_ia(st.session_state.get('ctx', {}))
-                        st.info(f"Assunto: {sug_a}")
-                        st.code(sug_c)
-                        
-                    if st.button("🚀 DISPARAR E-MAIL PARA LISTA EXTERNA"):
-                        if not st.session_state.get('smtp') or not st.session_state['smtp'].get('host'):
-                            st.error("SMTP OFF - CONFIGURE NA ABA CONFIGURAÇÕES GERAIS")
-                        elif 'email' not in df_ext.columns:
-                            st.error("O arquivo precisa ter uma coluna chamada 'email'.")
-                        elif len(df_ext[df_ext['email'].astype(str).str.contains("@")]) > saldo_envios:
-                            st.error(f"LISTA MAIOR QUE SALDO ({saldo_envios})")
-                        else:
-                            df_validos = df_ext[df_ext['email'].astype(str).str.contains("@")]
-                            bar2 = st.progress(0)
-                            log2 = st.empty()
-                            
-                            for i, row in df_validos.iterrows():
-                                if i > 0:
-                                    wait = random.randint(5, 15)
-                                    log2.warning(f"⏳ ANTI-SPAM... {wait}s")
-                                    time.sleep(wait)
-                                
-                                nome_l = row.get('nome', 'Parceiro')
-                                email_l = str(row['email']).strip()
-                                empresa_l = row.get('empresa', '') if 'empresa' in row else ''
-                                
-                                assunto_final_ext = assunto_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
-                                
-                                log_id = registrar_log_envio(token, email_l, assunto_final_ext, "Enviando... [EXT]")
-                                
-                                tracking_url = None
-                                if log_id and TRACKING_WEBHOOK_KEY != "SUA_CHAVE_AQUI":
-                                    base_clean = DIRECTUS_URL.rstrip('/')
-                                    tracking_url = f"{base_clean}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}"
-
-                                msg_final = corpo_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
-                                
-                                res, txt = enviar_email_smtp(st.session_state['smtp'], email_l, assunto_final_ext, msg_final, file_anexo_ext, tracking_url)
-                                
-                                if log_id:
-                                    novo_status = "Enviado [EXT]" if res else f"Erro: {txt}"
-                                    atualizar_status_envio(token, log_id, novo_status)
-
-                                if res: log2.success(f"ENVIADO: {email_l}")
-                                else: log2.error(f"FALHA: {email_l}")
-                                
-                                bar2.progress((i+1)/len(df_validos))
-                            st.balloons()
-                            time.sleep(2)
-                            st.rerun()
-                            
-                else: 
-                    msg_wpp_ext = st.text_area("MENSAGEM WHATSAPP (Use {nome}, {empresa})", value="Opa {nome} tudo bem", height=150, key="wpp_ext")
-                    file_anexo_wpp_ext = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_ext_up")
+            with c2:
+                if metodo_envio == "Email SMTP":
+                    assunto = st.text_input("ASSUNTO", key="ass_massa")
+                    st.caption("Dica: Use {{imagem}} no texto para inserir a imagem inline no corpo do e-mail.")
+                    corpo = st.text_area("CORPO HTML (Use {nome}, {empresa})", height=150, key="body_massa")
+                    file_anexo = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_int_email")
+                    if st.button("GERAR COPY EMAIL IA"): sug_a, sug_c = gerar_copy_ia(st.session_state.get('ctx', {})); st.info(sug_a); st.code(sug_c)
+                else:
+                    msg_wpp_massa = st.text_area("MENSAGEM WHATSAPP (Use {nome}, {empresa})", value="Opa {nome} tudo bem", height=150)
+                    file_anexo_wpp = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_int")
+                    st.info("O envio usa as travas de proteção da aba Configuração")
                     tracking = get_tracking_data(user_id)
                     st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
+
+            if st.button("🚀 INICIAR DISPARO EM MASSA"):
+                bar = st.progress(0)
+                log = st.empty()
+                
+                if metodo_envio == "Email SMTP":
+                    if not st.session_state.get('smtp') or not st.session_state['smtp'].get('host'): 
+                        st.error("CONFIGURE O SMTP NA ABA CONFIGURAÇÕES GERAIS")
+                    elif len(alvos_finais) > saldo_envios: st.error("SELEÇÃO MAIOR QUE SALDO")
+                    else:
+                        for i, label_sel in enumerate(alvos_finais):
+                            tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
+                            email_real = str(tgt.get('email', '')).strip()
+                            if not email_real or "@" not in email_real or email_real.lower() == 'nan':
+                                log.warning(f"Sem email valido para {label_sel}")
+                                continue
+                                
+                            assunto_final = assunto.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())    
+                            
+                            log_id = registrar_log_envio(token, email_real, assunto_final, "Enviando")
+                            url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id and TRACKING_WEBHOOK_KEY else None
+                            
+                            texto_final = corpo.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
+                            
+                            res, txt = enviar_email_smtp(st.session_state['smtp'], email_real, assunto_final, texto_final, file_anexo, url_pixel)
+                            if log_id: atualizar_status_envio(token, log_id, "Enviado" if res else f"Erro {txt}")
+                            if res and tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
+                            
+                            if res:
+                                log.success(f"ENVIADO PARA {email_real}")
+                            else:
+                                log.error(f"ERRO {email_real}")
+                                
+                            time.sleep(random.randint(5, 15))
+                            bar.progress((i+1)/len(alvos_finais))
+                
+                elif metodo_envio == "WhatsApp Baileys API":
+                    tracking = get_tracking_data(user_id)
+                    daily_limit = get_daily_limit(tracking["start_date"])
+                    today_str = str(date.today())
+                    current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
                     
-                    if st.button("🚀 DISPARAR WHATSAPP PARA LISTA EXTERNA"):
-                        if 'telefone' not in df_ext.columns and 'whatsapp' not in df_ext.columns:
-                            st.error("O arquivo precisa ter uma coluna chamada 'telefone' ou 'whatsapp'.")
-                        else:
-                            col_tel = 'telefone' if 'telefone' in df_ext.columns else 'whatsapp'
-                            df_validos = df_ext[df_ext[col_tel].astype(str).str.strip() != '']
-                            
-                            bar3 = st.progress(0)
-                            log3 = st.empty()
-                            
-                            daily_limit = get_daily_limit(tracking["start_date"])
-                            today_str = str(date.today())
-                            current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
-                            
-                            for i, row in df_validos.iterrows():
-                                tracking = get_tracking_data(user_id)
-                                if tracking["last_run_date"] != today_str: tracking["sent_today"] = 0; tracking["last_run_date"] = today_str
-                                if tracking["last_run_hour"] != current_hour_str: tracking["sent_this_hour"] = 0; tracking["last_run_hour"] = current_hour_str
-                                
-                                if tracking["sent_today"] >= daily_limit: st.warning("Limite diário atingido"); break
-                                if tracking["sent_this_hour"] >= 10: st.warning("Limite de hora atingido"); break
-                                
-                                nome_l = row.get('nome', 'Parceiro')
-                                empresa_l = row.get('empresa', '') if 'empresa' in row else ''
-                                numero = extrair_whatsapp(str(row[col_tel]))
-                                
-                                if not numero or numero.lower() == 'nan':
-                                    continue
-                                    
-                                try:
-                                    msg_final_wpp = msg_wpp_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
-                                    payload = {"number": numero, "message": msg_final_wpp}
-                                    
-                                    if file_anexo_wpp_ext is not None:
-                                        img_base64 = base64.b64encode(file_anexo_wpp_ext.getvalue()).decode('utf-8')
-                                        payload["image"] = img_base64
-                                        
-                                    res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
-                                    
-                                    if res.status_code == 200:
-                                        tracking["sent_today"] += 1
-                                        tracking["sent_this_hour"] += 1
-                                        save_tracking_data(user_id, tracking)
-                                        log3.success(f"WPP ENVIADO PARA {numero}")
-                                    else:
-                                        log3.error("Erro na API do Baileys")
-                                except:
-                                    log3.error("Falha de conexão com disparador")
-                                
-                                time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
-                                bar3.progress((i+1)/len(df_validos))
+                    if tracking["last_run_date"] != today_str: tracking["sent_today"] = 0; tracking["last_run_date"] = today_str
+                    if tracking["last_run_hour"] != current_hour_str: tracking["sent_this_hour"] = 0; tracking["last_run_hour"] = current_hour_str
 
-            except Exception as e:
-                st.error(f"ERRO AO LER EXCEL: {e}")
+                    for i, label_sel in enumerate(alvos_finais):
+                        if tracking["sent_today"] >= daily_limit: st.warning("Limite diário atingido"); break
+                        if tracking["sent_this_hour"] >= 10: st.warning("Limite de hora atingido"); break
+                        
+                        tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
+                        numero = extrair_whatsapp(str(tgt.get('telefone', '')))
+                        if not numero or numero.lower() == 'nan':
+                            log.warning(f"Sem WhatsApp para {label_sel}")
+                            continue
+                        
+                        try:
+                            msg_final_wpp = msg_wpp_massa.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
+                            
+                            payload = {"number": numero, "message": msg_final_wpp}
+                            
+                            if file_anexo_wpp is not None:
+                                img_base64 = base64.b64encode(file_anexo_wpp.getvalue()).decode('utf-8')
+                                payload["image"] = img_base64
+                                
+                            res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
+                            if res.status_code == 200:
+                                tracking["sent_today"] += 1
+                                tracking["sent_this_hour"] += 1
+                                save_tracking_data(user_id, tracking)
+                                log.success(f"WPP ENVIADO PARA {numero}")
+                                if tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
+                            else: log.error("Erro na API do Baileys")
+                        except: log.error("Falha de conexão com disparador")
+                        
+                        time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
+                        bar.progress((i+1)/len(alvos_finais))
 
-with tab5:
-    st.markdown("### 📧 CONFIGURAÇÃO DO E-MAIL (SMTP)")
-    st.info("Salve as credenciais do seu e-mail aqui. Elas ficarão salvas no seu banco de dados (Directus) para os próximos disparos automaticamente.")
-    
-    c_smtp1, c_smtp2 = st.columns(2)
-    with c_smtp1:
-        h_val = st.text_input("SMTP HOST (Ex: smtp.gmail.com)", value=st.session_state.get('smtp_host_input', 'smtp.gmail.com'))
-        u_val = st.text_input("SMTP USER (Seu e-mail)", value=st.session_state.get('smtp_user_input', ''))
-    with c_smtp2:
-        p_val = st.number_input("SMTP PORT", value=st.session_state.get('smtp_port_input', 587))
-        pw_val = st.text_input("SMTP PASS (Senha de App)", type="password", value=st.session_state.get('smtp_pass_input', ''))
-        
-    if st.button("💾 SALVAR CONFIGURAÇÕES NO BANCO", width='stretch'):
-        st.session_state['smtp'] = {'host': h_val, 'port': p_val, 'user': u_val, 'pass': pw_val}
-        st.session_state['smtp_host_input'] = h_val
-        st.session_state['smtp_port_input'] = p_val
-        st.session_state['smtp_user_input'] = u_val
-        st.session_state['smtp_pass_input'] = pw_val
-        
-        sucesso = salvar_config_smtp(token, {'smtp_host': h_val, 'smtp_port': p_val, 'smtp_user': u_val, 'smtp_pass': pw_val})
-        if sucesso:
-            st.success("✅ Configurações SMTP salvas com sucesso na tabela config_smtp!")
-        else:
-            st.error("❌ Falha ao salvar. Verifique se a tabela existe no Directus.")
+        with subtab_ext:
+            st.markdown("### 📂 UPLOAD DE LISTA (EXCEL .xlsx)")
+            up_file = st.file_uploader("ARQUIVO EXCEL (Colunas obrigatórias: nome, email ou telefone)", type=["xlsx"])
             
-    st.divider()
+            if up_file:
+                try:
+                    df_ext = pd.read_excel(up_file)
+                    df_ext.columns = [str(c).lower().strip() for c in df_ext.columns]
+                    
+                    st.dataframe(df_ext.head(), width='stretch')
+                    st.info(f"{len(df_ext)} LEADS ENCONTRADOS NO ARQUIVO")
 
-    st.markdown("### ⚙️ PROTEÇÃO DO WHATSAPP E LIMITES")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.delay_min = st.number_input("Tempo Minimo Segundos Travado em 300", min_value=300, max_value=600, value=max(300, st.session_state.delay_min))
-    with col2:
-        st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=350, max_value=800, value=max(350, st.session_state.delay_max))
-    
-    st.divider()
-    tracking = get_tracking_data(user_id)
-    daily_lim = get_daily_limit(tracking["start_date"])
-    col_a, col_b, col_c = st.columns(3)
-    col_a.metric("Limite Seguro de Hoje", daily_lim)
-    col_b.metric("Disparos Hoje", tracking["sent_today"])
-    col_c.metric("Disparos Nesta Hora", f"{tracking['sent_this_hour']} / 10")
-    
-    if st.button("Zerar Contadores de Segurança Perigo"):
-        os.remove(get_tracking_file(user_id))
+                    col_imp_btn, col_imp_info = st.columns([1, 2])
+                    with col_imp_btn:
+                        if st.button("💾 IMPORTAR LISTA PARA O CRM", type="primary"):
+                            progress_text = "Importando leads para o banco de dados..."
+                            my_bar = st.progress(0, text=progress_text)
+                            
+                            table_name = get_user_table_name(user_id)
+                            base_url = DIRECTUS_URL.rstrip('/')
+                            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                            
+                            total_imp = len(df_ext)
+                            sucesso_imp = 0
+                            
+                            for idx, row in df_ext.iterrows():
+                                payload = {"status": "Novo"}
+                                for col in df_ext.columns:
+                                    slug = col.replace(' ', '_').replace('ç', 'c').replace('ã', 'a')
+                                    val = row[col]
+                                    if pd.isna(val): val = ""
+                                    payload[slug] = str(val)
+
+                                try:
+                                    r_imp = requests.post(f"{base_url}/items/{table_name}", json=payload, headers=headers, verify=False)
+                                    if r_imp.status_code in [200, 204]:
+                                        sucesso_imp += 1
+                                except:
+                                    pass
+                                
+                                my_bar.progress((idx + 1) / total_imp)
+                            
+                            my_bar.empty()
+                            st.success(f"✅ IMPORTAÇÃO CONCLUÍDA! {sucesso_imp} LEADS SALVOS NO CRM.")
+                            time.sleep(2)
+                            st.rerun()
+
+                    st.markdown("---")
+                    
+                    st.markdown("#### 🚀 DISPARO DIRETO DA LISTA EXTERNA")
+                    metodo_envio_ext = st.radio("MÉTODO DE DISPARO EXTERNO", ["Email SMTP", "WhatsApp Baileys API"], horizontal=True, key="metodo_ext")
+                    
+                    if metodo_envio_ext == "Email SMTP":
+                        assunto_ext = st.text_input("ASSUNTO", key="ass_ext")
+                        st.caption("Dica: Use {{imagem}} no texto para inserir a imagem no corpo.")
+                        corpo_ext = st.text_area("CORPO HTML (Use {nome}, {empresa})", height=150, key="body_ext")
+                        file_anexo_ext = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_ext_up_email")
+                        
+                        if st.button("✨ GERAR COM IA (GROQ) - EXT"):
+                            sug_a, sug_c = gerar_copy_ia(st.session_state.get('ctx', {}))
+                            st.info(f"Assunto: {sug_a}")
+                            st.code(sug_c)
+                            
+                        if st.button("🚀 DISPARAR E-MAIL PARA LISTA EXTERNA"):
+                            if not st.session_state.get('smtp') or not st.session_state['smtp'].get('host'):
+                                st.error("SMTP OFF - CONFIGURE NA ABA CONFIGURAÇÕES GERAIS")
+                            elif 'email' not in df_ext.columns:
+                                st.error("O arquivo precisa ter uma coluna chamada 'email'.")
+                            elif len(df_ext[df_ext['email'].astype(str).str.contains("@")]) > saldo_envios:
+                                st.error(f"LISTA MAIOR QUE SALDO ({saldo_envios})")
+                            else:
+                                df_validos = df_ext[df_ext['email'].astype(str).str.contains("@")]
+                                bar2 = st.progress(0)
+                                log2 = st.empty()
+                                
+                                for i, row in df_validos.iterrows():
+                                    if i > 0:
+                                        wait = random.randint(5, 15)
+                                        log2.warning(f"⏳ ANTI-SPAM... {wait}s")
+                                        time.sleep(wait)
+                                    
+                                    nome_l = row.get('nome', 'Parceiro')
+                                    email_l = str(row['email']).strip()
+                                    empresa_l = row.get('empresa', '') if 'empresa' in row else ''
+                                    
+                                    assunto_final_ext = assunto_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
+                                    
+                                    log_id = registrar_log_envio(token, email_l, assunto_final_ext, "Enviando... [EXT]")
+                                    
+                                    tracking_url = None
+                                    if log_id and TRACKING_WEBHOOK_KEY != "SUA_CHAVE_AQUI":
+                                        base_clean = DIRECTUS_URL.rstrip('/')
+                                        tracking_url = f"{base_clean}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}"
+
+                                    msg_final = corpo_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
+                                    
+                                    res, txt = enviar_email_smtp(st.session_state['smtp'], email_l, assunto_final_ext, msg_final, file_anexo_ext, tracking_url)
+                                    
+                                    if log_id:
+                                        novo_status = "Enviado [EXT]" if res else f"Erro: {txt}"
+                                        atualizar_status_envio(token, log_id, novo_status)
+
+                                    if res: log2.success(f"ENVIADO: {email_l}")
+                                    else: log2.error(f"FALHA: {email_l}")
+                                    
+                                    bar2.progress((i+1)/len(df_validos))
+                                st.balloons()
+                                time.sleep(2)
+                                st.rerun()
+                                
+                    else: 
+                        msg_wpp_ext = st.text_area("MENSAGEM WHATSAPP (Use {nome}, {empresa})", value="Opa {nome} tudo bem", height=150, key="wpp_ext")
+                        file_anexo_wpp_ext = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_ext_up")
+                        tracking = get_tracking_data(user_id)
+                        st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
+                        
+                        if st.button("🚀 DISPARAR WHATSAPP PARA LISTA EXTERNA"):
+                            if 'telefone' not in df_ext.columns and 'whatsapp' not in df_ext.columns:
+                                st.error("O arquivo precisa ter uma coluna chamada 'telefone' ou 'whatsapp'.")
+                            else:
+                                col_tel = 'telefone' if 'telefone' in df_ext.columns else 'whatsapp'
+                                df_validos = df_ext[df_ext[col_tel].astype(str).str.strip() != '']
+                                
+                                bar3 = st.progress(0)
+                                log3 = st.empty()
+                                
+                                daily_limit = get_daily_limit(tracking["start_date"])
+                                today_str = str(date.today())
+                                current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
+                                
+                                for i, row in df_validos.iterrows():
+                                    tracking = get_tracking_data(user_id)
+                                    if tracking["last_run_date"] != today_str: tracking["sent_today"] = 0; tracking["last_run_date"] = today_str
+                                    if tracking["last_run_hour"] != current_hour_str: tracking["sent_this_hour"] = 0; tracking["last_run_hour"] = current_hour_str
+                                    
+                                    if tracking["sent_today"] >= daily_limit: st.warning("Limite diário atingido"); break
+                                    if tracking["sent_this_hour"] >= 10: st.warning("Limite de hora atingido"); break
+                                    
+                                    nome_l = row.get('nome', 'Parceiro')
+                                    empresa_l = row.get('empresa', '') if 'empresa' in row else ''
+                                    numero = extrair_whatsapp(str(row[col_tel]))
+                                    
+                                    if not numero or numero.lower() == 'nan':
+                                        continue
+                                        
+                                    try:
+                                        msg_final_wpp = msg_wpp_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
+                                        payload = {"number": numero, "message": msg_final_wpp}
+                                        
+                                        if file_anexo_wpp_ext is not None:
+                                            img_base64 = base64.b64encode(file_anexo_wpp_ext.getvalue()).decode('utf-8')
+                                            payload["image"] = img_base64
+                                            
+                                        res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
+                                        
+                                        if res.status_code == 200:
+                                            tracking["sent_today"] += 1
+                                            tracking["sent_this_hour"] += 1
+                                            save_tracking_data(user_id, tracking)
+                                            log3.success(f"WPP ENVIADO PARA {numero}")
+                                        else:
+                                            log3.error("Erro na API do Baileys")
+                                    except:
+                                        log3.error("Falha de conexão com disparador")
+                                    
+                                    time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
+                                    bar3.progress((i+1)/len(df_validos))
+
+                except Exception as e:
+                    st.error(f"ERRO AO LER EXCEL: {e}")
+
+    with tab5:
+        st.markdown("### 📧 CONFIGURAÇÃO DO E-MAIL (SMTP)")
+        st.info("Salve as credenciais do seu e-mail aqui. Elas ficarão salvas no seu banco de dados (Directus) para os próximos disparos automaticamente.")
+        
+        c_smtp1, c_smtp2 = st.columns(2)
+        with c_smtp1:
+            h_val = st.text_input("SMTP HOST (Ex: smtp.gmail.com)", value=st.session_state.get('smtp_host_input', 'smtp.gmail.com'))
+            u_val = st.text_input("SMTP USER (Seu e-mail)", value=st.session_state.get('smtp_user_input', ''))
+        with c_smtp2:
+            p_val = st.number_input("SMTP PORT", value=st.session_state.get('smtp_port_input', 587))
+            pw_val = st.text_input("SMTP PASS (Senha de App)", type="password", value=st.session_state.get('smtp_pass_input', ''))
+            
+        if st.button("💾 SALVAR CONFIGURAÇÕES NO BANCO", width='stretch'):
+            st.session_state['smtp'] = {'host': h_val, 'port': p_val, 'user': u_val, 'pass': pw_val}
+            st.session_state['smtp_host_input'] = h_val
+            st.session_state['smtp_port_input'] = p_val
+            st.session_state['smtp_user_input'] = u_val
+            st.session_state['smtp_pass_input'] = pw_val
+            
+            sucesso = salvar_config_smtp(token, {'smtp_host': h_val, 'smtp_port': p_val, 'smtp_user': u_val, 'smtp_pass': pw_val})
+            if sucesso:
+                st.success("✅ Configurações SMTP salvas com sucesso na tabela config_smtp!")
+            else:
+                st.error("❌ Falha ao salvar. Verifique se a tabela existe no Directus.")
+                
+        st.divider()
+
+        st.markdown("### ⚙️ PROTEÇÃO DO WHATSAPP E LIMITES")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.session_state.delay_min = st.number_input("Tempo Minimo Segundos Travado em 300", min_value=300, max_value=600, value=max(300, st.session_state.delay_min))
+        with col2:
+            st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=350, max_value=800, value=max(350, st.session_state.delay_max))
+        
+        st.divider()
+        tracking = get_tracking_data(user_id)
+        daily_lim = get_daily_limit(tracking["start_date"])
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Limite Seguro de Hoje", daily_lim)
+        col_b.metric("Disparos Hoje", tracking["sent_today"])
+        col_c.metric("Disparos Nesta Hora", f"{tracking['sent_this_hour']} / 10")
+        
+        if st.button("Zerar Contadores de Segurança Perigo"):
+            os.remove(get_tracking_file(user_id))
+            st.rerun()
+
+except Exception:
+    st.markdown("<br><br><br><h2 style='text-align: center; color: var(--red); padding: 20px;'>A TELA PRECISA SER ATUALIZADA</h2>", unsafe_allow_html=True)
+    if st.button("🔄 CLIQUE AQUI PARA REINICIAR", type="primary", use_container_width=True):
+        for key in list(st.session_state.keys()):
+            if key not in ['token', 'user']:
+                del st.session_state[key]
         st.rerun()
