@@ -693,11 +693,21 @@ with tab3:
 with tab4:
     st.markdown("### DISPARO EM MASSA EMAIL E WHATSAPP")
     df_unificado = pd.concat([df.assign(origem='Mestre'), df_bot.assign(origem='Bot')], ignore_index=True) if not df.empty and not df_bot.empty else df if not df.empty else df_bot
+    
+    ocultar_enviados = st.checkbox("Ocultar contatos já enviados Proteção contra duplicidade", value=True)
+    if ocultar_enviados and not df_unificado.empty and 'status' in df_unificado.columns:
+        df_unificado = df_unificado[df_unificado['status'] != "ENVIADO EM MASSA"]
+        
     if not df_unificado.empty: df_unificado['label'] = df_unificado.get('nome', df_unificado.get('email', 'Desc')) + " " + df_unificado.get('origem', '')
     
     c1, c2 = st.columns([1, 1])
     with c1:
-        alvos_finais = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
+        alvos_sel = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
+        modo_lote = st.checkbox("⚡ Enviar Lote de 10?", value=True)
+        alvos_finais = alvos_sel[:10] if modo_lote else alvos_sel
+        if modo_lote and len(alvos_sel) > 10:
+            st.caption(f"Faltam {len(alvos_sel)-10} leads para os próximos lotes")
+            
         metodo_envio = st.radio("MÉTODO DE DISPARO", ["Email SMTP", "WhatsApp Baileys API"], horizontal=True)
     with c2:
         if metodo_envio == "Email SMTP":
@@ -721,7 +731,9 @@ with tab4:
                 for i, label_sel in enumerate(alvos_finais):
                     tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
                     email_real = str(tgt.get('email', '')).strip()
-                    if not email_real or "@" not in email_real: continue
+                    if not email_real or "@" not in email_real or email_real.lower() == 'nan':
+                        log.warning(f"Sem email valido para {label_sel}")
+                        continue
                     log_id = registrar_log_envio(token, email_real, assunto, "Enviando")
                     url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id else None
                     res, txt = enviar_email_smtp(st.session_state['smtp'], email_real, assunto, corpo.replace("{nome}", str(tgt.get('nome', ''))), None, url_pixel)
@@ -733,7 +745,6 @@ with tab4:
         
         elif metodo_envio == "WhatsApp Baileys API":
             tracking = get_tracking_data(user_id)
-            limit_break = False
             daily_limit = get_daily_limit(tracking["start_date"])
             today_str = str(date.today())
             current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
@@ -747,7 +758,9 @@ with tab4:
                 
                 tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
                 numero = extrair_whatsapp(str(tgt.get('telefone', '')))
-                if not numero: continue
+                if not numero or numero.lower() == 'nan':
+                    log.warning(f"Sem WhatsApp para {label_sel}")
+                    continue
                 
                 try:
                     payload = {"number": numero, "message": msg_wpp_massa.replace("{nome}", str(tgt.get('nome', '')))}
