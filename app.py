@@ -25,65 +25,68 @@ os.environ["STREAMLIT_CLIENT_SHOW_ERROR_DETAILS"] = "false"
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;700&family=Kanit:ital,wght@0,300;0,600;0,800;1,800&display=swap');
-
     :root {
-        --neon: #D2FF00;
-        --purple: #7742df;
-        --black: #050505;
-        --carbon: #111111;
-        --white: #FAFAFA;
-        --gray: #888888;
+        --bg-color: #F5F5F7;
+        --surface: #FFFFFF;
+        --text-main: #1D1D1F;
+        --text-muted: #86868B;
+        --blue: #0071E3;
+        --border: #D2D2D7;
+        --red: #FF3B30;
+        --green: #34C759;
     }
 
-    .stApp { background-color: var(--black); font-family: 'Kanit', sans-serif; }
+    .stApp { background-color: var(--bg-color); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     
-    h1, h2, h3 { font-family: 'Kanit', sans-serif; font-style: italic; font-weight: 800 !important; text-transform: uppercase; letter-spacing: -1px; }
-    p, div, label, input { font-family: 'Chakra Petch', monospace; }
+    h1, h2, h3, h4, h5, h6 { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 600 !important; color: var(--text-main); letter-spacing: -0.5px; }
+    p, div, label, span { font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: var(--text-main); }
 
-    section[data-testid="stSidebar"] { background-color: var(--carbon); border-right: 1px solid rgba(255, 255, 255, 0.1); }
-    section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] span, section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] label { color: #ffffff !important; }
+    section[data-testid="stSidebar"] { background-color: var(--surface); border-right: 1px solid var(--border); }
+    section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] span, section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] label { color: var(--text-main) !important; }
 
-    div.stButton > button { background-color: var(--purple) !important; color: var(--white) !important; border: none; border-radius: 0px; font-weight: 800; font-family: 'Kanit', sans-serif; font-style: italic; text-transform: uppercase; transform: skewX(-10deg); transition: all 0.3s ease; padding: 0.5rem 1rem; }
-    div.stButton > button:hover { background-color: var(--neon) !important; color: var(--black) !important; box-shadow: 0 0 15px rgba(210, 255, 0, 0.4); }
-    div.stButton > button p { transform: skewX(10deg); }
+    div.stButton > button { background-color: var(--blue) !important; color: #FFFFFF !important; border: none; border-radius: 8px; font-weight: 500; font-family: -apple-system, sans-serif; padding: 0.5rem 1rem; transition: all 0.2s ease; }
+    div.stButton > button:hover { background-color: #005BB5 !important; transform: scale(0.98); }
     
-    a[data-testid="stLinkButton"] { background-color: var(--neon) !important; color: var(--black) !important; border: none; border-radius: 0px; font-weight: 800; font-family: 'Kanit', sans-serif; font-style: italic; text-transform: uppercase; transform: skewX(-10deg); transition: all 0.3s ease; padding: 0.5rem 1rem; text-decoration: none; display: inline-block; text-align: center; }
-    a[data-testid="stLinkButton"]:hover { background-color: var(--white) !important; box-shadow: 0 0 15px rgba(210, 255, 0, 0.4); }
+    a[data-testid="stLinkButton"] { background-color: var(--blue) !important; color: #FFFFFF !important; border: none; border-radius: 8px; font-weight: 500; font-family: -apple-system, sans-serif; padding: 0.5rem 1rem; text-decoration: none; display: inline-block; text-align: center; transition: all 0.2s ease; }
+    a[data-testid="stLinkButton"]:hover { background-color: #005BB5 !important; transform: scale(0.98); }
 
-    div[data-baseweb="input"] { background-color: var(--black); border: 1px solid #333; border-radius: 0px; }
-    div[data-baseweb="base-input"] input { color: var(--neon); font-family: 'Chakra Petch', monospace; }
+    div[data-baseweb="input"] { background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+    div[data-baseweb="base-input"] input { color: var(--text-main) !important; -webkit-text-fill-color: var(--text-main) !important; }
 
-    div[data-testid="stMetric"] { background-color: var(--carbon); border: 1px solid #333; padding: 15px; border-left: 4px solid var(--neon); transform: skewX(-5deg); }
-    div[data-testid="stMetric"] label { color: var(--gray); font-size: 0.8rem; }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] { color: var(--white); font-family: 'Kanit', sans-serif; font-weight: 800; font-style: italic; }
+    div[data-testid="stMetric"] { background-color: var(--surface); border: 1px solid var(--border); padding: 15px; border-radius: 12px; border-left: 4px solid var(--blue); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    div[data-testid="stMetric"] label { color: var(--text-muted); font-size: 0.85rem; font-weight: 500; }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] { color: var(--text-main); font-weight: 700; }
 
-    div[data-testid="stDataFrame"] { border: 1px solid #333; }
+    div[data-testid="stDataFrame"] { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
     
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { background-color: var(--carbon); border: 1px solid #333; color: var(--gray); border-radius: 0px; font-family: 'Chakra Petch', monospace; text-transform: uppercase; font-weight: bold; }
-    .stTabs [aria-selected="true"] { background-color: var(--neon) !important; color: var(--black) !important; border-color: var(--neon) !important; }
+    .stTabs [data-baseweb="tab-list"] { gap: 20px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+    .stTabs [data-baseweb="tab"] { background-color: transparent; border: none; color: var(--text-muted); font-weight: 500; padding: 10px 5px; }
+    .stTabs [aria-selected="true"] { color: var(--blue) !important; border-bottom: 2px solid var(--blue) !important; background-color: transparent !important; }
 
-    .leanttro-header { border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; margin-bottom: 30px; }
-    .leanttro-title { font-size: 3rem; line-height: 1; color: var(--white); margin: 0; }
-    .neon-text { color: var(--neon); }
-    .leanttro-sub { font-family: 'Chakra Petch', monospace; color: var(--gray); font-size: 0.8rem; letter-spacing: 0.2rem; margin-top: 5px; }
+    .leanttro-header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 30px; text-align: center; }
+    .leanttro-title { font-size: 2.5rem; line-height: 1.2; color: var(--text-main); margin: 0; font-weight: 700; letter-spacing: -1px; }
+    .blue-text { color: var(--blue); }
+    .leanttro-sub { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; font-weight: 400; }
     
-    .stProgress > div > div > div > div { background-color: var(--neon); }
-    span[data-baseweb="tag"] { color: var(--black) !important; }
-    span[data-baseweb="tag"] span { color: var(--black) !important; }
-    span[data-baseweb="tag"] svg { fill: var(--black) !important; }
+    .stProgress > div > div > div > div { background-color: var(--blue); }
+    span[data-baseweb="tag"] { background-color: #E5E5EA !important; color: var(--text-main) !important; border-radius: 6px; }
+    span[data-baseweb="tag"] span { color: var(--text-main) !important; }
+    span[data-baseweb="tag"] svg { fill: var(--text-muted) !important; }
 
-    .lead-card { background-color: #0a0a0a !important; padding: 25px; border-radius: 8px; border: 1px solid #222; margin-bottom: 20px; position: relative; overflow: hidden; }
-    .lead-card:hover { border-color: var(--purple); }
-    .score-hot { border-left: 4px solid var(--purple); } 
-    .score-warm { border-left: 4px solid #555; }    
-    .lead-title { font-family: 'Kanit', sans-serif; font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 5px; text-decoration: none; display: block; }
-    .lead-title:hover { color: var(--purple); }
-    .tag-nicho { background-color: #1a1a1a; color: #bbb; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-family: monospace; border: 1px solid #333; margin-right: 5px; }
-    .recommendation-box { background-color: #111; border: 1px dashed #333; padding: 10px; margin-top: 15px; border-radius: 4px; }
-    .rec-title { color: var(--purple); font-weight: bold; font-size: 12px; font-family: monospace; }
-    .rec-text { font-size: 13px; color: #ddd; margin-top: 4px; }
+    .lead-card { background-color: var(--surface) !important; padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+    .lead-card:hover { border-color: var(--blue); }
+    .score-hot { border-left: 4px solid var(--blue); } 
+    .score-warm { border-left: 4px solid var(--text-muted); }    
+    .lead-title { font-size: 18px; font-weight: 600; color: var(--text-main); margin-bottom: 5px; text-decoration: none; display: block; }
+    .lead-title:hover { color: var(--blue); }
+    .tag-nicho { background-color: #F5F5F7; color: var(--text-muted); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; border: 1px solid var(--border); margin-right: 5px; }
+    .recommendation-box { background-color: #F5F5F7; border: 1px solid var(--border); padding: 12px; margin-top: 15px; border-radius: 8px; }
+    .rec-title { color: var(--blue); font-weight: 600; font-size: 12px; }
+    .rec-text { font-size: 13px; color: var(--text-main); margin-top: 4px; line-height: 1.5; }
+    
+    .stTextArea textarea { color: var(--text-main) !important; -webkit-text-fill-color: var(--text-main) !important; background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+    .stSelectbox > div > div { background-color: var(--surface); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; }
+    .stNumberInput input { color: var(--text-main) !important; -webkit-text-fill-color: var(--text-main) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -102,8 +105,8 @@ if GROQ_API_KEY:
 def render_header():
     st.markdown("""
     <div class="leanttro-header">
-        <h1 class="leanttro-title">LEAN<span class="neon-text">TTRO</span>.</h1>
-        <div class="leanttro-sub">// CRM & INTELLIGENCE HUB</div>
+        <h1 class="leanttro-title">LEAN<span class="blue-text">TTRO</span>.</h1>
+        <div class="leanttro-sub">CRM & INTELLIGENCE HUB</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -448,7 +451,7 @@ if 'token' not in st.session_state:
     c1, c2, c3 = st.columns([1,1,1])
     with c2:
         render_header()
-        st.markdown("<p style='text-align:center; color:#888'>// ACESSO RESTRITO</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; color:#888'>ACESSO RESTRITO</p>", unsafe_allow_html=True)
         email = st.text_input("E-MAIL")
         senha = st.text_input("SENHA", type="password")
         if st.button("ACESSAR SISTEMA", use_container_width=True):
@@ -495,7 +498,7 @@ if "delay_max" not in st.session_state: st.session_state.delay_max = 400
 if "blacklist" not in st.session_state: st.session_state.blacklist = set()
 
 with st.sidebar:
-    st.markdown(f"<h3 style='color:var(--neon)'>// USER {user.get('first_name').upper()}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3>USER {user.get('first_name').upper()}</h3>", unsafe_allow_html=True)
     if st.button("LOGOUT / SAIR"):
         st.session_state.clear()
         st.query_params.clear()
@@ -571,7 +574,7 @@ with tab1:
                     autor = analise.get('autor', 'Desconhecido')
                     css_class = "score-hot" if score >= 80 else "score-warm"
                     
-                    st.markdown(f'<div class="lead-card {css_class}"><div><span style="color:var(--purple); font-weight:bold;">SCORE {score}</span> <span class="tag-nicho">Autor {autor}</span></div><div style="margin-top:10px;"><a href="{p["link"]}" target="_blank" class="lead-title">{p["titulo"]}</a></div><div class="recommendation-box"><div style="color:white; font-weight:bold;">OFERTAR {analise.get("produto_recomendado", "N/A").upper()}</div><div class="rec-text">{analise.get("resumo_post", "")}</div></div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="lead-card {css_class}"><div><span style="color:var(--blue); font-weight:bold;">SCORE {score}</span> <span class="tag-nicho">Autor {autor}</span></div><div style="margin-top:10px;"><a href="{p["link"]}" target="_blank" class="lead-title">{p["titulo"]}</a></div><div class="recommendation-box"><div style="color:var(--text-main); font-weight:bold;">OFERTAR {analise.get("produto_recomendado", "N/A").upper()}</div><div class="rec-text">{analise.get("resumo_post", "")}</div></div></div>', unsafe_allow_html=True)
                     if st.button(f"Salvar {autor} no CRM", key=f"save_{p['link']}"):
                         salvar_lead_crm(token, user_id, {"nome": autor, "origem": "Radar", "url": p["link"], "obs": analise.get("resumo_post", "")})
                         st.success("Salvo no CRM")
