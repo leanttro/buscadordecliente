@@ -297,7 +297,6 @@ def enviar_email_smtp(smtp_config, to, subject, body, anexo=None, tracking_url=N
         to = str(to).strip()
         subject = str(subject).strip()
         
-        # Converte quebras de linha padrão do texto para HTML
         body = str(body).replace('\n', '<br>')
         
         if tracking_url:
@@ -778,13 +777,23 @@ with tab4:
                         df_unificado = pd.DataFrame()
                 
                 if not df_unificado.empty:
-                    df_unificado['label'] = df_unificado.get('nome', df_unificado.get('email', 'Desc')) + " | " + df_unificado.get('empresa', 'Sem Empresa') + " | " + df_unificado.get('fonte_dados', '')
+                    def make_label(r):
+                        emp = str(r.get('empresa', ''))
+                        nm = str(r.get('nome', ''))
+                        if emp.lower() == 'nan' or not emp.strip(): emp = 'Sem Empresa'
+                        if nm.lower() == 'nan' or not nm.strip(): nm = 'Sem Nome'
+                        return f"Empresa: {emp} | Nome: {nm} | {r.get('fonte_dados', '')}"
+                    df_unificado['label'] = df_unificado.apply(make_label, axis=1)
             
-            alvos_sel = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
-            modo_lote = st.checkbox("⚡ Enviar Lote de 10?", value=True)
-            alvos_finais = alvos_sel[:10] if modo_lote else alvos_sel
-            if modo_lote and len(alvos_sel) > 10:
-                st.caption(f"Faltam {len(alvos_sel)-10} leads para os próximos lotes")
+            modo_lote = st.checkbox("⚡ Enviar Lote de 10 Automático (Status Novo)?", value=True)
+            if modo_lote:
+                alvos_pre = []
+                if not df_unificado.empty and 'status' in df_unificado.columns:
+                    df_novos = df_unificado[df_unificado['status'].astype(str).str.upper() == 'NOVO']
+                    alvos_pre = df_novos['label'].tolist()[:10]
+                alvos_finais = st.multiselect("ALVOS SELECIONADOS AUTOMATICAMENTE", alvos_pre, default=alvos_pre, disabled=True)
+            else:
+                alvos_finais = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
                 
         with c2:
             if metodo_envio == "Email SMTP":
