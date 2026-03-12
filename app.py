@@ -18,6 +18,7 @@ import urllib.parse
 import re
 import concurrent.futures
 from io import BytesIO
+import base64
 
 st.set_page_config(page_title="LEANTTRO CRM & SNIPER", layout="wide", page_icon="⚡")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -786,10 +787,11 @@ with tab4:
                 assunto = st.text_input("ASSUNTO", key="ass_massa")
                 st.caption("Dica: Use {{imagem}} no texto para inserir a imagem inline no corpo do e-mail.")
                 corpo = st.text_area("CORPO HTML (Use {nome}, {empresa})", height=150, key="body_massa")
-                file_anexo = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_int")
+                file_anexo = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_int_email")
                 if st.button("GERAR COPY EMAIL IA"): sug_a, sug_c = gerar_copy_ia(st.session_state.get('ctx', {})); st.info(sug_a); st.code(sug_c)
             else:
                 msg_wpp_massa = st.text_area("MENSAGEM WHATSAPP (Use {nome}, {empresa})", value="Opa {nome} tudo bem", height=150)
+                file_anexo_wpp = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_int")
                 st.info("O envio usa as travas de proteção da aba Configuração")
                 tracking = get_tracking_data(user_id)
                 st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
@@ -849,6 +851,11 @@ with tab4:
                         msg_final_wpp = msg_wpp_massa.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
                         
                         payload = {"number": numero, "message": msg_final_wpp}
+                        
+                        if file_anexo_wpp is not None:
+                            img_base64 = base64.b64encode(file_anexo_wpp.getvalue()).decode('utf-8')
+                            payload["image"] = img_base64
+                            
                         res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
                         if res.status_code == 200:
                             tracking["sent_today"] += 1
@@ -918,7 +925,7 @@ with tab4:
                     assunto_ext = st.text_input("ASSUNTO", key="ass_ext")
                     st.caption("Dica: Use {{imagem}} no texto para inserir a imagem no corpo.")
                     corpo_ext = st.text_area("CORPO HTML (Use {nome})", height=150, key="body_ext")
-                    file_anexo_ext = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_ext_up")
+                    file_anexo_ext = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_ext_up_email")
                     
                     if st.button("✨ GERAR COM IA (GROQ) - EXT"):
                         sug_a, sug_c = gerar_copy_ia(st.session_state.get('ctx', {}))
@@ -971,6 +978,7 @@ with tab4:
                             
                 else: 
                     msg_wpp_ext = st.text_area("MENSAGEM WHATSAPP (Use {nome})", value="Opa {nome} tudo bem", height=150, key="wpp_ext")
+                    file_anexo_wpp_ext = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_ext_up")
                     tracking = get_tracking_data(user_id)
                     st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
                     
@@ -1005,6 +1013,11 @@ with tab4:
                                 try:
                                     msg_final_wpp = msg_wpp_ext.replace("{nome}", str(nome_l))
                                     payload = {"number": numero, "message": msg_final_wpp}
+                                    
+                                    if file_anexo_wpp_ext is not None:
+                                        img_base64 = base64.b64encode(file_anexo_wpp_ext.getvalue()).decode('utf-8')
+                                        payload["image"] = img_base64
+                                        
                                     res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
                                     
                                     if res.status_code == 200:
@@ -1063,7 +1076,7 @@ with tab5:
     col_a, col_b, col_c = st.columns(3)
     col_a.metric("Limite Seguro de Hoje", daily_lim)
     col_b.metric("Disparos Hoje", tracking["sent_today"])
-    col_c.metric("Disparos Nesta Hora", f"{tracking['sent_this_hour']} 10")
+    col_c.metric("Disparos Nesta Hora", f"{tracking['sent_this_hour']} / 10")
     
     if st.button("Zerar Contadores de Segurança Perigo"):
         os.remove(get_tracking_file(user_id))
