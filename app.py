@@ -244,10 +244,10 @@ def atualizar_item(token, user_id, item_id, dados):
 def carregar_config_smtp(token):
     try:
         base_url = DIRECTUS_URL.rstrip('/')
-        r = requests.get(f"{base_url}/items/config_smtp?filter[user_created][_eq]=$CURRENT_USER&limit=1", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        r = requests.get(f"{base_url}/items/config_smtp?limit=1", headers={"Authorization": f"Bearer {token}"}, verify=False)
         if r.status_code == 200:
             data = r.json()['data']
-            if data: return data[0]
+            if data and len(data) > 0: return data[0]
     except: pass
     return {}
 
@@ -255,11 +255,11 @@ def salvar_config_smtp(token, dados):
     base_url = DIRECTUS_URL.rstrip('/')
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     existente = carregar_config_smtp(token)
-    if existente:
+    if existente and 'id' in existente:
         r = requests.patch(f"{base_url}/items/config_smtp/{existente['id']}", json=dados, headers=headers, verify=False)
     else:
         r = requests.post(f"{base_url}/items/config_smtp", json=dados, headers=headers, verify=False)
-    return r.status_code == 200
+    return r.status_code in [200, 204]
 
 def contar_envios_hoje(token):
     try:
@@ -513,15 +513,6 @@ with st.sidebar:
         en = st.text_input("NOME EMPRESA", value="Leanttro Especialista em Jurídico")
         ed = st.text_area("O QUE VENDE", value="Landing Pages de Alta Conversão para Advogados Produto foco www.leanttro.com/zenilda-adv Ajuda a passar autoridade e captar clientes qualificados")
         if st.button("SALVAR CONTEXTO"): st.session_state['ctx'] = {'empresa': en, 'descricao': ed}, st.success("SALVO")
-    with st.expander("📧 SMTP CONFIG", expanded=True):
-        h = st.text_input("HOST", key="smtp_host_input")
-        p = st.number_input("PORT", key="smtp_port_input")
-        u = st.text_input("USER", key="smtp_user_input")
-        pw = st.text_input("PASS", type="password", key="smtp_pass_input")
-        if st.button("SALVAR E CONECTAR"):
-            st.session_state['smtp'] = {'host': h, 'port': p, 'user': u, 'pass': pw}
-            salvar_config_smtp(token, {'smtp_host': h, 'smtp_port': p, 'smtp_user': u, 'smtp_pass': pw})
-            st.toast("Configurações salvas e conectadas", icon="✅")
 
 render_header()
 df = carregar_dados(token, user_id)
@@ -536,7 +527,7 @@ k1.metric("TOTAL LEADS CRM", len(df))
 k2.metric("LEADS BOT", len(df_bot))
 k3.metric("SALDO EMAIL DIARIO", saldo_envios)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 RADAR DE INTENÇÃO", "⛏️ MINERADOR DE DADOS", "📋 CRM E AÇÕES", "🚀 DISPARO SNIPER", "⚙️ PROTEÇÃO WHATSAPP"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 RADAR DE INTENÇÃO", "⛏️ MINERADOR DE DADOS", "📋 CRM E AÇÕES", "🚀 DISPARO SNIPER", "⚙️ CONFIGURAÇÕES"])
 
 with tab1:
     st.markdown("### CAÇADOR DE OPORTUNIDADES B2B")
@@ -772,7 +763,8 @@ with tab4:
         log = st.empty()
         
         if metodo_envio == "Email SMTP":
-            if not st.session_state.get('smtp'): st.error("CONFIGURE O SMTP NA SIDEBAR")
+            if not st.session_state.get('smtp') or not st.session_state['smtp'].get('host'): 
+                st.error("CONFIGURE O SMTP NA ABA CONFIGURAÇÕES GERAIS")
             elif len(alvos_finais) > saldo_envios: st.error("SELEÇÃO MAIOR QUE SALDO")
             else:
                 for i, label_sel in enumerate(alvos_finais):
@@ -825,7 +817,33 @@ with tab4:
                 bar.progress((i+1)/len(alvos_finais))
 
 with tab5:
-    st.markdown("### PROTEÇÃO DO WHATSAPP E LIMITES")
+    st.markdown("### 📧 CONFIGURAÇÃO DO E-MAIL (SMTP)")
+    st.info("Salve as credenciais do seu e-mail aqui. Elas ficarão salvas no seu banco de dados (Directus) para os próximos disparos automaticamente.")
+    
+    c_smtp1, c_smtp2 = st.columns(2)
+    with c_smtp1:
+        h_val = st.text_input("SMTP HOST (Ex: smtp.gmail.com)", value=st.session_state.get('smtp_host_input', 'smtp.gmail.com'))
+        u_val = st.text_input("SMTP USER (Seu e-mail)", value=st.session_state.get('smtp_user_input', ''))
+    with c_smtp2:
+        p_val = st.number_input("SMTP PORT", value=st.session_state.get('smtp_port_input', 587))
+        pw_val = st.text_input("SMTP PASS (Senha de App)", type="password", value=st.session_state.get('smtp_pass_input', ''))
+        
+    if st.button("💾 SALVAR CONFIGURAÇÕES NO BANCO", use_container_width=True):
+        st.session_state['smtp'] = {'host': h_val, 'port': p_val, 'user': u_val, 'pass': pw_val}
+        st.session_state['smtp_host_input'] = h_val
+        st.session_state['smtp_port_input'] = p_val
+        st.session_state['smtp_user_input'] = u_val
+        st.session_state['smtp_pass_input'] = pw_val
+        
+        sucesso = salvar_config_smtp(token, {'smtp_host': h_val, 'smtp_port': p_val, 'smtp_user': u_val, 'smtp_pass': pw_val})
+        if sucesso:
+            st.success("✅ Configurações SMTP salvas com sucesso na tabela config_smtp!")
+        else:
+            st.error("❌ Falha ao salvar. Verifique se a tabela existe no Directus.")
+            
+    st.divider()
+
+    st.markdown("### ⚙️ PROTEÇÃO DO WHATSAPP E LIMITES")
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.delay_min = st.number_input("Tempo Minimo Segundos Travado em 300", min_value=300, max_value=600, value=max(300, st.session_state.delay_min))
