@@ -578,6 +578,8 @@ with tab1:
                     if st.button(f"Salvar {autor} no CRM", key=f"save_{p['link']}"):
                         salvar_lead_crm(token, user_id, {"nome": autor, "origem": "Radar", "url": p["link"], "obs": analise.get("resumo_post", "")})
                         st.success("Salvo no CRM")
+                        time.sleep(1)
+                        st.rerun()
 
 with tab2:
     st.markdown("### EXTRATOR DE CONTATOS LOCAIS")
@@ -617,9 +619,11 @@ with tab2:
         st.dataframe(df_mine, width='stretch')
         if st.button("SALVAR TODOS NO CRM"):
             for _, row in df_mine.iterrows():
-                salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": row["Email"], "telefone": row["Whatsapp"], "origem": "Minerador", "url": row["Link"]})
+                salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": row["Email"], "telefone": row["Whatsapp"], "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"]})
             st.success("Enviados para o banco de dados")
             st.session_state["leads_isolados"] = []
+            time.sleep(1)
+            st.rerun()
 
 with tab3:
     with st.expander("FILTRAR E PERSONALIZAR TABELA", expanded=True):
