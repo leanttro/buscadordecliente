@@ -119,9 +119,6 @@ def get_user_table_name(user_id):
 def get_tracking_file(user_id):
     return f"tracking_wpp_{user_id}.json"
 
-def get_email_tracking_file(user_id):
-    return f"tracking_email_{user_id}.json"
-
 def get_tracking_data(user_id):
     file_path = get_tracking_file(user_id)
     if os.path.exists(file_path):
@@ -139,29 +136,8 @@ def get_tracking_data(user_id):
             json.dump(data, f)
         return data
 
-def get_email_tracking_data(user_id):
-    file_path = get_email_tracking_file(user_id)
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as f:
-            return json.load(f)
-    else:
-        data = {
-            "start_date": str(date.today()),
-            "last_run_date": str(date.today()),
-            "sent_today": 0,
-            "last_run_hour": str(datetime.now().strftime("%Y-%m-%d %H")),
-            "sent_this_hour": 0
-        }
-        with open(file_path, 'w') as f:
-            json.dump(data, f)
-        return data
-
 def save_tracking_data(user_id, data):
     with open(get_tracking_file(user_id), 'w') as f:
-        json.dump(data, f)
-
-def save_email_tracking_data(user_id, data):
-    with open(get_email_tracking_file(user_id), 'w') as f:
         json.dump(data, f)
 
 def get_daily_limit(start_date_str):
@@ -547,11 +523,9 @@ render_header()
 df = carregar_dados(token, user_id)
 df_bot = carregar_dados_bot(token)
 
-# ANTI-BLOCK: Email daily limit progressivo igual ao wpp
-email_tracking_top = get_email_tracking_data(user_id)
-COTA_MAXIMA = get_daily_limit(email_tracking_top['start_date'])
+COTA_MAXIMA = 100
 envios_realizados = contar_envios_hoje(token)
-saldo_envios = max(0, COTA_MAXIMA - envios_realizados)
+saldo_envios = COTA_MAXIMA - envios_realizados
 
 k1, k2, k3 = st.columns(3)
 k1.metric("TOTAL LEADS CRM", len(df))
@@ -845,19 +819,7 @@ with tab4:
                     st.error("CONFIGURE O SMTP NA ABA CONFIGURAÇÕES GERAIS")
                 elif len(alvos_finais) > saldo_envios: st.error("SELEÇÃO MAIOR QUE SALDO")
                 else:
-                    # ANTI-BLOCK: Segurança Progressiva e Hourly Lock para Email
-                    email_tracking = get_email_tracking_data(user_id)
-                    daily_limit_email = get_daily_limit(email_tracking["start_date"])
-                    today_str = str(date.today())
-                    current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
-                    
-                    if email_tracking["last_run_date"] != today_str: email_tracking["sent_today"] = 0; email_tracking["last_run_date"] = today_str
-                    if email_tracking["last_run_hour"] != current_hour_str: email_tracking["sent_this_hour"] = 0; email_tracking["last_run_hour"] = current_hour_str
-
                     for i, label_sel in enumerate(alvos_finais):
-                        if email_tracking["sent_today"] >= daily_limit_email: st.warning("Limite diário de e-mail atingido"); break
-                        if email_tracking["sent_this_hour"] >= 10: st.warning("Limite de hora de e-mail atingido (Max 10/h)"); break
-                        
                         tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
                         email_real = str(tgt.get('email', '')).strip()
                         if not email_real or "@" not in email_real or email_real.lower() == 'nan':
@@ -872,20 +834,15 @@ with tab4:
                         texto_final = corpo.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
                         
                         res, txt = enviar_email_smtp(st.session_state['smtp'], email_real, assunto_final, texto_final, file_anexo, url_pixel)
+                        if log_id: atualizar_status_envio(token, log_id, "Enviado" if res else f"Erro {txt}")
+                        if res and tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
                         
                         if res:
-                            email_tracking["sent_today"] += 1
-                            email_tracking["sent_this_hour"] += 1
-                            save_email_tracking_data(user_id, email_tracking)
-                            if log_id: atualizar_status_envio(token, log_id, "Enviado")
-                            if tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
                             log.success(f"ENVIADO PARA {email_real}")
                         else:
-                            if log_id: atualizar_status_envio(token, log_id, f"Erro {txt}")
                             log.error(f"ERRO {email_real}")
                             
-                        # ANTI-BLOCK: Delay seguro igual ao WPP
-                        time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
+                        time.sleep(random.randint(5, 15))
                         bar.progress((i+1)/len(alvos_finais))
             
             elif metodo_envio == "WhatsApp Baileys API":
@@ -1000,20 +957,16 @@ with tab4:
                         elif len(df_ext[df_ext['email'].astype(str).str.contains("@")]) > saldo_envios:
                             st.error(f"LISTA MAIOR QUE SALDO ({saldo_envios})")
                         else:
-                            # ANTI-BLOCK: Mesma segurança WPP para lista externa
-                            email_tracking_ext = get_email_tracking_data(user_id)
-                            daily_limit_email_ext = get_daily_limit(email_tracking_ext["start_date"])
-                            today_str = str(date.today())
-                            current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
-
                             df_validos = df_ext[df_ext['email'].astype(str).str.contains("@")]
                             bar2 = st.progress(0)
                             log2 = st.empty()
                             
                             for i, row in df_validos.iterrows():
-                                if email_tracking_ext["sent_today"] >= daily_limit_email_ext: st.warning("Limite diário de e-mail atingido"); break
-                                if email_tracking_ext["sent_this_hour"] >= 10: st.warning("Limite de hora de e-mail atingido (Max 10/h)"); break
-
+                                if i > 0:
+                                    wait = random.randint(5, 15)
+                                    log2.warning(f"⏳ ANTI-SPAM... {wait}s")
+                                    time.sleep(wait)
+                                
                                 nome_l = row.get('nome', 'Parceiro')
                                 email_l = str(row['email']).strip()
                                 empresa_l = row.get('empresa', '') if 'empresa' in row else ''
@@ -1031,20 +984,12 @@ with tab4:
                                 
                                 res, txt = enviar_email_smtp(st.session_state['smtp'], email_l, assunto_final_ext, msg_final, file_anexo_ext, tracking_url)
                                 
-                                if res:
-                                    email_tracking_ext["sent_today"] += 1
-                                    email_tracking_ext["sent_this_hour"] += 1
-                                    save_email_tracking_data(user_id, email_tracking_ext)
-                                    if log_id: atualizar_status_envio(token, log_id, "Enviado [EXT]")
-                                    log2.success(f"ENVIADO: {email_l}")
-                                else:
-                                    if log_id: atualizar_status_envio(token, log_id, f"Erro: {txt}")
-                                    log2.error(f"FALHA: {email_l}")
-                                
-                                # Delay Seguro WPP
-                                wait = random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max))
-                                log2.warning(f"⏳ ANTI-BLOQUEIO... {wait}s")
-                                time.sleep(wait)
+                                if log_id:
+                                    novo_status = "Enviado [EXT]" if res else f"Erro: {txt}"
+                                    atualizar_status_envio(token, log_id, novo_status)
+
+                                if res: log2.success(f"ENVIADO: {email_l}")
+                                else: log2.error(f"FALHA: {email_l}")
                                 
                                 bar2.progress((i+1)/len(df_validos))
                             st.balloons()
@@ -1139,7 +1084,7 @@ with tab5:
             
     st.divider()
 
-    st.markdown("### ⚙️ PROTEÇÃO ANTI-BLOQUEIO GERAL")
+    st.markdown("### ⚙️ PROTEÇÃO DO WHATSAPP E LIMITES")
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.delay_min = st.number_input("Tempo Minimo Segundos Travado em 300", min_value=300, max_value=600, value=max(300, st.session_state.delay_min))
@@ -1147,23 +1092,13 @@ with tab5:
         st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=350, max_value=800, value=max(350, st.session_state.delay_max))
     
     st.divider()
-    tracking_wpp_v = get_tracking_data(user_id)
-    tracking_email_v = get_email_tracking_data(user_id)
-    daily_lim_v = get_daily_limit(tracking_wpp_v["start_date"])
-    
-    st.markdown("#### STATUS DE SEGURANÇA (E-MAIL)")
-    col_e1, col_e2, col_e3 = st.columns(3)
-    col_e1.metric("Limite Diário (Warm-up)", daily_lim_v)
-    col_e2.metric("Enviados Hoje", tracking_email_v["sent_today"])
-    col_e3.metric("Nesta Hora (E-mail)", f"{tracking_email_v['sent_this_hour']} / 10")
-
-    st.markdown("#### STATUS DE SEGURANÇA (WHATSAPP)")
-    col_w1, col_w2, col_w3 = st.columns(3)
-    col_w1.metric("Limite Diário (Warm-up)", daily_lim_v)
-    col_w2.metric("Enviados Hoje", tracking_wpp_v["sent_today"])
-    col_w3.metric("Nesta Hora (Wpp)", f"{tracking_wpp_v['sent_this_hour']} / 10")
+    tracking = get_tracking_data(user_id)
+    daily_lim = get_daily_limit(tracking["start_date"])
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Limite Seguro de Hoje", daily_lim)
+    col_b.metric("Disparos Hoje", tracking["sent_today"])
+    col_c.metric("Disparos Nesta Hora", f"{tracking['sent_this_hour']} / 10")
     
     if st.button("Zerar Contadores de Segurança Perigo"):
-        if os.path.exists(get_tracking_file(user_id)): os.remove(get_tracking_file(user_id))
-        if os.path.exists(get_email_tracking_file(user_id)): os.remove(get_email_tracking_file(user_id))
+        os.remove(get_tracking_file(user_id))
         st.rerun()
