@@ -778,7 +778,12 @@ with tab4:
                     res, txt = enviar_email_smtp(st.session_state['smtp'], email_real, assunto, corpo.replace("{nome}", str(tgt.get('nome', ''))), None, url_pixel)
                     if log_id: atualizar_status_envio(token, log_id, "Enviado" if res else f"Erro {txt}")
                     if res and tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
-                    log.success(f"ENVIADO PARA {email_real}") if res else log.error(f"ERRO {email_real}")
+                    
+                    if res:
+                        log.success(f"ENVIADO PARA {email_real}")
+                    else:
+                        log.error(f"ERRO {email_real}")
+                        
                     time.sleep(random.randint(5, 15))
                     bar.progress((i+1)/len(alvos_finais))
         
