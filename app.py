@@ -1,235 +1,414 @@
 import streamlit as st
-import requests
-import os
-import json
-import time
-import concurrent.futures
 import pandas as pd
-import re
-import random
-import datetime
-from io import BytesIO
+import requests
 from groq import Groq
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.mime.image import MIMEImage
+from email import encoders
+from datetime import datetime, date
+import time
+import os
+import random
 import urllib3
-import functools
+import json
+import urllib.parse
+import re
+import concurrent.futures
+from io import BytesIO
 
+st.set_page_config(page_title="LEANTTRO CRM & SNIPER", layout="wide", page_icon="⚡")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-st.set_page_config(page_title="LEANTTRO | Buscador de Oportunidades", layout="wide", page_icon="🚀")
+os.environ["STREAMLIT_CLIENT_SHOW_ERROR_DETAILS"] = "false"
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap');
-    
-    header {
-        visibility: hidden;
-        height: 0px;
-    }
-    div[data-testid="stHeader"] {
-        visibility: hidden;
-        height: 0px;
-    }
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-    }
-    
-    .stApp { background-color: #050505; color: #E5E7EB; font-family: 'Kanit', sans-serif; }
-    
-    section[data-testid="stSidebar"] {
-        background-color: #111111 !important;
-    }
-    
-    section[data-testid="stSidebar"] h1, 
-    section[data-testid="stSidebar"] h2, 
-    section[data-testid="stSidebar"] h3, 
-    section[data-testid="stSidebar"] span, 
-    section[data-testid="stSidebar"] p, 
-    section[data-testid="stSidebar"] label {
-        color: #ffffff !important;
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;700&family=Kanit:ital,wght@0,300;0,600;0,800;1,800&display=swap');
+
+    :root {
+        --neon: #D2FF00;
+        --purple: #7742df;
+        --black: #050505;
+        --carbon: #111111;
+        --white: #FAFAFA;
+        --gray: #888888;
     }
 
-    .stCode pre, .stCode code {
-        background-color: #1a1a1a !important;
-        color: #7742df !important;
-        border: 1px solid #333 !important;
-    }
-
-    .stTextInput label, .stSelectbox label, .stNumberInput label, .stTextArea label {
-        color: #ffffff !important;
-        font-size: 14px !important;
-    }
+    .stApp { background-color: var(--black); font-family: 'Kanit', sans-serif; }
     
-    .custom-info-box {
-        background-color: #1a1a1a;
-        border-left: 4px solid #7742df;
-        padding: 15px;
-        color: #ffffff !important;
-        font-size: 14px;
-        margin-bottom: 20px;
-        border-radius: 4px;
-        border: 1px solid #333;
-        line-height: 1.5;
-    }
+    h1, h2, h3 { font-family: 'Kanit', sans-serif; font-style: italic; font-weight: 800 !important; text-transform: uppercase; letter-spacing: -1px; }
+    p, div, label, input { font-family: 'Chakra Petch', monospace; }
 
-    div.stButton > button { 
-        background-color: #7742df; color: #ffffff; border: none; 
-        border-radius: 4px; font-weight: 600; width: 100%; 
-        text-transform: uppercase;
-        transition: all 0.3s ease;
-    }
-    div.stButton > button:hover { 
-        background-color: #ffffff; color: #7742df;
-        box-shadow: 0 0 15px rgba(119, 66, 223, 0.3);
-    }
+    section[data-testid="stSidebar"] { background-color: var(--carbon); border-right: 1px solid rgba(255, 255, 255, 0.1); }
+    section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] span, section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] label { color: #ffffff !important; }
+
+    div.stButton > button { background-color: var(--purple) !important; color: var(--white) !important; border: none; border-radius: 0px; font-weight: 800; font-family: 'Kanit', sans-serif; font-style: italic; text-transform: uppercase; transform: skewX(-10deg); transition: all 0.3s ease; padding: 0.5rem 1rem; }
+    div.stButton > button:hover { background-color: var(--neon) !important; color: var(--black) !important; box-shadow: 0 0 15px rgba(210, 255, 0, 0.4); }
+    div.stButton > button p { transform: skewX(10deg); }
     
-    .stTextInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
-    .stNumberInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
-    .stSelectbox > div > div { background-color: #111; color: white; border: 1px solid #333; }
-    .stTextArea > div > div > textarea { color: #fff; background-color: #111; border: 1px solid #333; }
+    a[data-testid="stLinkButton"] { background-color: var(--neon) !important; color: var(--black) !important; border: none; border-radius: 0px; font-weight: 800; font-family: 'Kanit', sans-serif; font-style: italic; text-transform: uppercase; transform: skewX(-10deg); transition: all 0.3s ease; padding: 0.5rem 1rem; text-decoration: none; display: inline-block; text-align: center; }
+    a[data-testid="stLinkButton"]:hover { background-color: var(--white) !important; box-shadow: 0 0 15px rgba(210, 255, 0, 0.4); }
 
-    .lead-card {
-        background-color: #0a0a0a !important; padding: 25px; border-radius: 8px;
-        border: 1px solid #222; margin-bottom: 20px;
-        position: relative; overflow: hidden;
-    }
-    .lead-card:hover { border-color: #7742df; }
-    
-    .score-hot { border-left: 4px solid #7742df; } 
-    .score-warm { border-left: 4px solid #555; }    
-    .score-cold { border-left: 4px solid #333; }    
+    div[data-baseweb="input"] { background-color: var(--black); border: 1px solid #333; border-radius: 0px; }
+    div[data-baseweb="base-input"] input { color: var(--neon); font-family: 'Chakra Petch', monospace; }
 
-    .lead-title { font-family: 'Kanit', sans-serif; font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 5px; text-decoration: none; display: block; }
-    .lead-title:hover { color: #7742df; }
-    
-    .tag-nicho { 
-        background-color: #1a1a1a; color: #bbb; padding: 2px 8px; 
-        border-radius: 4px; font-size: 10px; font-family: monospace;
-        border: 1px solid #333; margin-right: 5px;
-    }
+    div[data-testid="stMetric"] { background-color: var(--carbon); border: 1px solid #333; padding: 15px; border-left: 4px solid var(--neon); transform: skewX(-5deg); }
+    div[data-testid="stMetric"] label { color: var(--gray); font-size: 0.8rem; }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] { color: var(--white); font-family: 'Kanit', sans-serif; font-weight: 800; font-style: italic; }
 
-    .recommendation-box {
-        background-color: #111; border: 1px dashed #333; 
-        padding: 10px; margin-top: 15px; border-radius: 4px;
-    }
-    .rec-title { color: #7742df; font-weight: bold; font-size: 12px; font-family: monospace; }
-    .rec-text { font-size: 13px; color: #ddd; margin-top: 4px; }
+    div[data-testid="stDataFrame"] { border: 1px solid #333; }
     
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { background-color: #111; border: 1px solid #333; color: #888; border-radius: 4px; }
-    .stTabs [aria-selected="true"] { background-color: #7742df !important; color: #ffffff !important; font-weight: bold; border-color: #7742df; }
+    .stTabs [data-baseweb="tab"] { background-color: var(--carbon); border: 1px solid #333; color: var(--gray); border-radius: 0px; font-family: 'Chakra Petch', monospace; text-transform: uppercase; font-weight: bold; }
+    .stTabs [aria-selected="true"] { background-color: var(--neon) !important; color: var(--black) !important; border-color: var(--neon) !important; }
 
-    h1, h2, h3 { font-family: 'Kanit', sans-serif; font-weight: 600; }
-    a { text-decoration: none !important; }
+    .leanttro-header { border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; margin-bottom: 30px; }
+    .leanttro-title { font-size: 3rem; line-height: 1; color: var(--white); margin: 0; }
+    .neon-text { color: var(--neon); }
+    .leanttro-sub { font-family: 'Chakra Petch', monospace; color: var(--gray); font-size: 0.8rem; letter-spacing: 0.2rem; margin-top: 5px; }
+    
+    .stProgress > div > div > div > div { background-color: var(--neon); }
+    span[data-baseweb="tag"] { color: var(--black) !important; }
+    span[data-baseweb="tag"] span { color: var(--black) !important; }
+    span[data-baseweb="tag"] svg { fill: var(--black) !important; }
+
+    .lead-card { background-color: #0a0a0a !important; padding: 25px; border-radius: 8px; border: 1px solid #222; margin-bottom: 20px; position: relative; overflow: hidden; }
+    .lead-card:hover { border-color: var(--purple); }
+    .score-hot { border-left: 4px solid var(--purple); } 
+    .score-warm { border-left: 4px solid #555; }    
+    .lead-title { font-family: 'Kanit', sans-serif; font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 5px; text-decoration: none; display: block; }
+    .lead-title:hover { color: var(--purple); }
+    .tag-nicho { background-color: #1a1a1a; color: #bbb; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-family: monospace; border: 1px solid #333; margin-right: 5px; }
+    .recommendation-box { background-color: #111; border: 1px dashed #333; padding: 10px; margin-top: 15px; border-radius: 4px; }
+    .rec-title { color: var(--purple); font-weight: bold; font-size: 12px; font-family: monospace; }
+    .rec-text { font-size: 13px; color: #ddd; margin-top: 4px; }
 </style>
 """, unsafe_allow_html=True)
 
+DIRECTUS_URL = os.getenv("DIRECTUS_URL", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
-TRACKING_FILE = "leanttro_tracking.json"
+TRACKING_WEBHOOK_KEY = "0deea9a4-ce23-4aee-bb82-d9422bd8e15f"
 
-def get_tracking_data():
-    if os.path.exists(TRACKING_FILE):
-        with open(TRACKING_FILE, 'r') as f:
+groq_client = None
+if GROQ_API_KEY:
+    try:
+        groq_client = Groq(api_key=GROQ_API_KEY)
+    except:
+        pass
+
+def render_header():
+    st.markdown("""
+    <div class="leanttro-header">
+        <h1 class="leanttro-title">LEAN<span class="neon-text">TTRO</span>.</h1>
+        <div class="leanttro-sub">// CRM & INTELLIGENCE HUB</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def get_user_table_name(user_id):
+    clean_id = str(user_id).replace("-", "_")
+    return f"crm_{clean_id}"
+
+def get_tracking_file(user_id):
+    return f"tracking_wpp_{user_id}.json"
+
+def get_tracking_data(user_id):
+    file_path = get_tracking_file(user_id)
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
             return json.load(f)
     else:
         data = {
-            "start_date": str(datetime.date.today()),
-            "last_run_date": str(datetime.date.today()),
+            "start_date": str(date.today()),
+            "last_run_date": str(date.today()),
             "sent_today": 0,
-            "last_run_hour": str(datetime.datetime.now().strftime("%Y-%m-%d %H")),
+            "last_run_hour": str(datetime.now().strftime("%Y-%m-%d %H")),
             "sent_this_hour": 0
         }
-        with open(TRACKING_FILE, 'w') as f:
+        with open(file_path, 'w') as f:
             json.dump(data, f)
         return data
 
-def save_tracking_data(data):
-    with open(TRACKING_FILE, 'w') as f:
+def save_tracking_data(user_id, data):
+    with open(get_tracking_file(user_id), 'w') as f:
         json.dump(data, f)
 
 def get_daily_limit(start_date_str):
-    start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
-    today = datetime.date.today()
+    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    today = date.today()
     days_passed = (today - start_date).days
     weeks_passed = days_passed // 7
     limit = 30 + (weeks_passed * 10)
     return min(limit, 120)
 
-if "mensagem_padrao" not in st.session_state:
-    st.session_state.mensagem_padrao = "Opa {primeiro_nome}, tudo bem? Vi que vocês atendem no {bairro}. Tentei achar o site de vcs no Google e não consegui, tá fora do ar?"
-
-if "system_prompt_padrao" not in st.session_state:
-    st.session_state.system_prompt_padrao = """
-    ATUE COMO: Head de Vendas da Leanttro Digital.
+def inicializar_crm_usuario(token, user_id):
+    table_name = get_user_table_name(user_id)
+    base_url = DIRECTUS_URL.rstrip('/')
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     
-    OBJETIVO: Encontrar quem está COMPRANDO ou BUSCANDO serviços, ignore quem está vendendo.
+    r = requests.get(f"{base_url}/collections/{table_name}", headers=headers, verify=False)
+    if r.status_code != 200:
+        schema = {"collection": table_name, "schema": {}, "meta": {"icon": "rocket", "note": "Leanttro CRM Table"}}
+        requests.post(f"{base_url}/collections", json=schema, headers=headers, verify=False)
     
-    PRODUTOS: Catálogo online, Site simples, Automação de WhatsApp, IA para negócios, Identidade visual.
-    
-    TAREFAS:
-    1. Identifique se o autor ESTÁ BUSCANDO o serviço (Score 80 a 100).
-    2. Se for alguém VENDENDO ou agência concorrente, Score é ZERO.
-    3. Identifique o NOME e o TIPO DE OPORTUNIDADE.
-    
-    SAÍDA JSON OBRIGATÓRIA:
-    {
-        "autor": "Nome de quem busca",
-        "score": (0-100),
-        "resumo_post": "Resumo do que a pessoa precisa",
-        "produto_recomendado": "Serviço exato",
-        "argumento_venda": "Como abordar para vender rápido"
-    }
-    """
-
-if "saudacoes" not in st.session_state:
-    st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi", "Fala"]
-
-if "delay_min" not in st.session_state:
-    st.session_state.delay_min = 300
-
-if "delay_max" not in st.session_state:
-    st.session_state.delay_max = 400
-
-if "blacklist" not in st.session_state:
-    st.session_state.blacklist = set()
-
-SUGESTOES_STRATEGICAS = {
-    "Sites de Freelance (Workana/99)": [
-        "procuro desenvolvedor site", 
-        "preciso de automação whatsapp", 
-        "criar catálogo online", 
-        "busco especialista em IA", 
-        "fazer landing page urgente" 
-    ],
-    "LinkedIn (Postagens/Feed)": [
-        "alguém recomenda empresa para site",
-        "busco profissional automação",
-        "indicação criador de catálogo", 
-        "preciso integrar IA no meu negócio",
-        "busco agência para landing page"
-    ],
-    "Grupos Facebook / Web": [
-        "preciso de um site", 
-        "alguém faz catálogo digital", 
-        "procuro quem faça automação",
-        "indicação de desenvolvedor web", 
-        "orçamento para site" 
+    campos = [
+        {"field": "nome", "type": "string", "meta": {"interface": "input", "width": "half", "icon": "person"}},
+        {"field": "empresa", "type": "string", "meta": {"interface": "input", "width": "half", "icon": "domain"}},
+        {"field": "email", "type": "string", "meta": {"interface": "input", "width": "half", "icon": "email"}},
+        {"field": "telefone", "type": "string", "meta": {"interface": "input", "width": "half", "icon": "phone"}},
+        {"field": "origem", "type": "string", "meta": {"interface": "input", "width": "half", "icon": "map"}},
+        {"field": "url", "type": "string", "meta": {"interface": "input", "width": "full", "icon": "link"}},
+        {"field": "status", "type": "string", "meta": {"interface": "select-dropdown", "options": {"choices": [{"text": "NOVO", "value": "Novo"}, {"text": "QUENTE", "value": "Quente"}, {"text": "CLIENTE", "value": "Cliente"}, {"text": "ENVIADO EM MASSA", "value": "ENVIADO EM MASSA"}]}}},
+        {"field": "obs", "type": "text", "meta": {"interface": "input-multiline"}}
     ]
-}
+    
+    for campo in campos:
+        try:
+            requests.post(f"{base_url}/fields/{table_name}", json=campo, headers=headers, verify=False)
+        except:
+            pass 
 
-FONTES_MINERADOR = {
-    "Instagram": "site:instagram.com",
-    "Facebook": "site:facebook.com",
-    "LinkedIn": "site:linkedin.com/company",
-    "Geral (Maps/Web)": ""
-}
+    r_smtp = requests.get(f"{base_url}/collections/config_smtp", headers=headers, verify=False)
+    if r_smtp.status_code != 200:
+        schema_smtp = {"collection": "config_smtp", "schema": {}, "meta": {"icon": "email", "note": "SMTP Users Config"}}
+        requests.post(f"{base_url}/collections", json=schema_smtp, headers=headers, verify=False)
+        campos_smtp = [
+            {"field": "smtp_host", "type": "string"},
+            {"field": "smtp_port", "type": "integer"},
+            {"field": "smtp_user", "type": "string"},
+            {"field": "smtp_pass", "type": "string"}
+        ]
+        for c in campos_smtp: requests.post(f"{base_url}/fields/config_smtp", json=c, headers=headers, verify=False)
+        
+    return True, "CRM Initialized"
 
-def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Leads')
-    return output.getvalue()
+def criar_coluna_dinamica(token, user_id, nome_campo, tipo_interface):
+    table_name = get_user_table_name(user_id)
+    base_url = DIRECTUS_URL.rstrip('/')
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    slug = nome_campo.lower().strip().replace(" ", "_").replace("ç", "c")
+    mapa = {"Texto": "string", "Número": "integer", "Data": "date"}
+    type_d = mapa.get(tipo_interface, "string")
+    payload = {"field": slug, "type": type_d, "meta": {"interface": "input", "width": "full"}, "schema": {"is_nullable": True}}
+    r = requests.post(f"{base_url}/fields/{table_name}", json=payload, headers=headers, verify=False)
+    return r.status_code == 200
+
+def carregar_dados(token, user_id):
+    try:
+        table = get_user_table_name(user_id)
+        r = requests.get(f"{DIRECTUS_URL}/items/{table}?limit=-1", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        if r.status_code == 200:
+            df = pd.DataFrame(r.json()['data'])
+            if 'id' in df.columns:
+                cols_pri = ['id', 'nome', 'empresa', 'email', 'telefone', 'origem', 'status']
+                cols_existentes = [c for c in cols_pri if c in df.columns]
+                cols_restantes = [c for c in df.columns if c not in cols_existentes]
+                return df[cols_existentes + cols_restantes]
+    except: pass
+    return pd.DataFrame(columns=["nome", "empresa", "email", "status", "telefone"])
+
+def salvar_lead_crm(token, user_id, dados):
+    table = get_user_table_name(user_id)
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    payload = {"status": "Novo"}
+    for k, v in dados.items():
+        payload[k] = str(v)
+    r = requests.post(f"{DIRECTUS_URL}/items/{table}", json=payload, headers=headers, verify=False)
+    return r.status_code in [200, 204]
+
+def carregar_dados_bot(token):
+    try:
+        r = requests.get(f"{DIRECTUS_URL}/items/clients_bot?limit=-1", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        if r.status_code == 200:
+            df = pd.DataFrame(r.json()['data'])
+            if not df.empty:
+                rename_map = {}
+                if 'name' in df.columns: rename_map['name'] = 'nome'
+                if 'whatsapp' in df.columns: rename_map['whatsapp'] = 'telefone'
+                df.rename(columns=rename_map, inplace=True)
+            cols_desejadas = ['id', 'nome', 'email', 'telefone', 'dor_principal', 'session_uuid']
+            cols_existentes = [c for c in cols_desejadas if c in df.columns]
+            return df[cols_existentes]
+    except: pass
+    return pd.DataFrame()
+
+def atualizar_item(token, user_id, item_id, dados):
+    table = get_user_table_name(user_id)
+    requests.patch(f"{DIRECTUS_URL}/items/{table}/{item_id}", json=dados, headers={"Authorization": f"Bearer {token}"}, verify=False)
+
+def carregar_config_smtp(token):
+    try:
+        base_url = DIRECTUS_URL.rstrip('/')
+        r = requests.get(f"{base_url}/items/config_smtp?filter[user_created][_eq]=$CURRENT_USER&limit=1", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        if r.status_code == 200:
+            data = r.json()['data']
+            if data: return data[0]
+    except: pass
+    return {}
+
+def salvar_config_smtp(token, dados):
+    base_url = DIRECTUS_URL.rstrip('/')
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    existente = carregar_config_smtp(token)
+    if existente:
+        r = requests.patch(f"{base_url}/items/config_smtp/{existente['id']}", json=dados, headers=headers, verify=False)
+    else:
+        r = requests.post(f"{base_url}/items/config_smtp", json=dados, headers=headers, verify=False)
+    return r.status_code == 200
+
+def contar_envios_hoje(token):
+    try:
+        base_url = DIRECTUS_URL.rstrip('/')
+        hoje_str = datetime.now().strftime("%Y-%m-%d")
+        url = f"{base_url}/items/historico_envios?filter[data_envio][_gte]={hoje_str}&filter[user_created][_eq]=$CURRENT_USER&aggregate[count]=*"
+        r = requests.get(url, headers={"Authorization": f"Bearer {token}"}, verify=False)
+        if r.status_code == 200:
+            data = r.json()['data']
+            if isinstance(data, list) and len(data) > 0:
+                return int(data[0].get('count', 0))
+    except: pass
+    return 0
+
+def registrar_log_envio(token, destinatario, assunto, status):
+    try:
+        base_url = DIRECTUS_URL.rstrip('/')
+        payload = {"data_envio": datetime.now().isoformat(), "destinatario": destinatario, "assunto": assunto, "status": status, "aberto": False}
+        r = requests.post(f"{base_url}/items/historico_envios", json=payload, headers={"Authorization": f"Bearer {token}"}, verify=False)
+        if r.status_code in [200, 201]: return r.json()['data']['id']
+    except: pass
+    return None
+
+def atualizar_status_envio(token, log_id, novo_status, erro_msg=None):
+    try:
+        base_url = DIRECTUS_URL.rstrip('/')
+        payload = {"status": novo_status}
+        if erro_msg: payload["obs"] = erro_msg
+        requests.patch(f"{base_url}/items/historico_envios/{log_id}", json=payload, headers={"Authorization": f"Bearer {token}"}, verify=False)
+    except: pass
+
+def enviar_email_smtp(smtp_config, to, subject, body, anexo=None, tracking_url=None):
+    try:
+        to = str(to).strip()
+        subject = str(subject).strip()
+        if tracking_url:
+            cache_buster = random.randint(1000, 999999)
+            url_final = f"{tracking_url}&r={cache_buster}"
+            pixel_html = f'<img src="{url_final}" width="1" height="1" style="display:block; width:1px; height:1px; opacity:0.01;" alt="" />'
+            if "</body>" in body: body = body.replace("</body>", f"{pixel_html}</body>")
+            else: body += pixel_html
+
+        usar_imagem_inline = False
+        if anexo is not None and "{{imagem}}" in body.lower():
+            if "image" in anexo.type: usar_imagem_inline = True
+
+        if usar_imagem_inline:
+            msg = MIMEMultipart('related')
+            msg['From'] = smtp_config['user']
+            msg['To'] = to
+            msg['Subject'] = subject
+            msg_alternative = MIMEMultipart('alternative')
+            msg.attach(msg_alternative)
+            cid_id = "imagem_corpo"
+            body_atualizado = body.replace("{{imagem}}", f'<br><img src="cid:{cid_id}" style="max-width:100%; height:auto;"><br>')
+            msg_alternative.attach(MIMEText(body_atualizado, 'html', 'utf-8'))
+            img_data = anexo.getvalue()
+            image = MIMEImage(img_data)
+            image.add_header('Content-ID', f'<{cid_id}>') 
+            image.add_header('Content-Disposition', 'inline', filename=anexo.name)
+            msg.attach(image)
+        else:
+            msg = MIMEMultipart()
+            msg['From'] = smtp_config['user']
+            msg['To'] = to
+            msg['Subject'] = subject
+            msg.attach(MIMEText(body, 'html', 'utf-8'))
+            if anexo is not None:
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(anexo.getvalue())
+                encoders.encode_base64(part)
+                part.add_header('Content-Disposition', f'attachment; filename="{anexo.name}"')
+                msg.attach(part)
+
+        server = smtplib.SMTP(smtp_config['host'], int(smtp_config['port']))
+        server.starttls()
+        server.login(smtp_config['user'], smtp_config['pass'])
+        server.sendmail(smtp_config['user'], to, msg.as_string())
+        server.quit()
+        return True, "OK"
+    except Exception as e: return False, str(e)
+
+def gerar_copy_ia(ctx, dados_cliente=None):
+    if not groq_client: return "Erro", "Configure a GROQ_API_KEY no ambiente"
+    empresa = ctx.get('empresa', 'Nossa Empresa')
+    descricao = ctx.get('descricao', 'Soluções Digitais')
+    segmento_alvo = ctx.get('segmento_alvo', '') 
+    dor_cliente = ""
+    if dados_cliente is not None and 'dor_principal' in dados_cliente:
+        d = dados_cliente['dor_principal']
+        if d and str(d).lower() != 'none': dor_cliente = f"A principal dor ou necessidade deste cliente é: {d}. Use isso para personalizar o texto."
+    instrucao_segmento = ""
+    if segmento_alvo: instrucao_segmento = f"CONTEXTO IMPORTANTE: O público alvo deste disparo são empresas e pessoas do seguinte perfil e segmento: {segmento_alvo}. Adapte a linguagem e exemplos para eles."
+
+    prompt = f"Aja como um copywriter profissional B2B. Escreva um email curto max 3 parágrafos de prospecção fria. Minha Empresa: {empresa}. O que vendemos: {descricao}. {instrucao_segmento}. {dor_cliente}. Tom Persuasivo direto e sem enrolação corporativa. Foco Marcar uma reunião ou resolver o problema dele. IMPORTANTE Não coloque Assunto no corpo apenas o texto do email."
+    try:
+        chat_completion = groq_client.chat.completions.create(messages=[{"role": "user", "content": prompt}], model="llama-3.3-70b-versatile")
+        return "Proposta Personalizada", chat_completion.choices[0].message.content
+    except Exception as e: return "Erro IA", str(e)
+
+def gerar_whatsapp_ia(ctx, dados_cliente=None):
+    if not groq_client: return "Erro API Key não configurada"
+    empresa = ctx.get('empresa', 'Leanttro')
+    descricao = ctx.get('descricao', 'Landing Pages')
+    nome = "Doutor"
+    dor = ""
+    if dados_cliente is not None:
+        nome = dados_cliente.get('nome', 'Doutor')
+        if 'dor_principal' in dados_cliente: dor = f"Foque na dor {dados_cliente['dor_principal']}"
+
+    prompt = f"Aja como um especialista em vendas B2B via WhatsApp. Escreva uma mensagem MUITO CURTA máximo 2 frases e direta para abordagem fria. Contexto {empresa} vende {descricao}. Cliente {nome}. {dor}. OBRIGATÓRIO A mensagem DEVE incluir o link www.leanttro.com/zenilda-adv. Tom Informal vizinho mas profissional. Sem cara de robô. Objetivo Apenas despertar interesse para clicar no link e ver o exemplo."
+    try:
+        chat_completion = groq_client.chat.completions.create(messages=[{"role": "user", "content": prompt}], model="llama-3.3-70b-versatile")
+        return chat_completion.choices[0].message.content
+    except Exception as e: return f"Erro IA {str(e)}"
+
+def validar_token(token):
+    try:
+        r = requests.get(f"{DIRECTUS_URL}/users/me", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        if r.status_code == 200: return r.json()['data']
+    except: pass
+    return None
+
+def search_google_serper(query, period, num_results=10):
+    url = "https://google.serper.dev/search"
+    payload_dict = {"q": query, "num": num_results, "gl": "br", "hl": "pt-br"}
+    if period: payload_dict["tbs"] = period
+    headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+    try:
+        response = requests.request("POST", url, headers=headers, data=json.dumps(payload_dict))
+        if response.status_code != 200: return []
+        return response.json().get("organic", [])
+    except: return []
+
+def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
+    if not groq_key: return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
+    try:
+        completion = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"TITULO: {title}\nSNIPPET: {snippet}\nLINK: {link}"}],
+            temperature=0.1, response_format={"type": "json_object"}
+        )
+        return json.loads(completion.choices[0].message.content)
+    except: return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro IA", "argumento_venda": "Falha na análise"}
+
+def process_single_item(item, system_prompt):
+    titulo = item.get('title', '')
+    link = item.get('link', '')
+    snippet = item.get('snippet', '')
+    data_pub = item.get('date', 'Data n/d')
+    analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY, system_prompt)
+    return {"item": item, "analise": analise, "titulo": titulo, "link": link, "snippet": snippet, "data_pub": data_pub}
 
 def extrair_email(texto):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', str(texto))
@@ -238,13 +417,10 @@ def extrair_email(texto):
 def extrair_whatsapp(texto):
     padrao = r'(?:(?:\+|00)?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\-?(\d{4}))'
     match = re.search(padrao, str(texto))
-    
     if match:
         ddd, parte1, parte2 = match.groups()
         if not ddd: ddd = "11" 
-        
-        numero_limpo = f"55{ddd}{parte1}{parte2}".replace(" ", "").replace("-", "")
-        return numero_limpo
+        return f"55{ddd}{parte1}{parte2}".replace(" ", "").replace("-", "")
     return None
 
 def limpar_nome(titulo):
@@ -253,402 +429,354 @@ def limpar_nome(titulo):
     if "|" in titulo: return titulo.split("|")[0].strip()
     return titulo[:50]
 
-def search_google_serper(query, period, num_results=10):
-    url = "https://google.serper.dev/search"
-    payload_dict = {
-        "q": query,
-        "num": num_results,
-        "gl": "br", 
-        "hl": "pt-br"
-    }
-    if period:
-        payload_dict["tbs"] = period
+SUGESTOES_STRATEGICAS = {
+    "Sites de Freelance": ["procuro desenvolvedor site", "preciso de automação whatsapp", "criar catálogo online", "busco especialista em IA"],
+    "LinkedIn": ["alguém recomenda empresa para site", "busco profissional automação", "indicação criador de catálogo", "preciso integrar IA no meu negócio"],
+    "Grupos Facebook Web": ["preciso de um site", "alguém faz catálogo digital", "procuro quem faça automação", "orçamento para site"]
+}
+FONTES_MINERADOR = {"Instagram": "site:instagram.com", "Facebook": "site:facebook.com", "LinkedIn": "site:linkedin.com/company", "Geral": ""}
 
-    payload = json.dumps(payload_dict)
-    headers = {
-        'X-API-KEY': SERPER_API_KEY,
-        'Content-Type': 'application/json'
-    }
+if 'token' not in st.session_state:
+    token_url = st.query_params.get("token")
+    if token_url:
+        user_data = validar_token(token_url)
+        if user_data:
+            st.session_state['token'] = token_url
+            st.session_state['user'] = user_data
 
-    try:
-        response = requests.request("POST", url, headers=headers, data=payload)
-        if response.status_code != 200:
-            return []
-        return response.json().get("organic", [])
-    except:
-        return []
+if 'token' not in st.session_state:
+    c1, c2, c3 = st.columns([1,1,1])
+    with c2:
+        render_header()
+        st.markdown("<p style='text-align:center; color:#888'>// ACESSO RESTRITO</p>", unsafe_allow_html=True)
+        email = st.text_input("E-MAIL")
+        senha = st.text_input("SENHA", type="password")
+        if st.button("ACESSAR SISTEMA", use_container_width=True):
+            login_sucesso = False
+            try:
+                r = requests.post(f"{DIRECTUS_URL}/auth/login", json={"email": email, "password": senha}, verify=False)
+                if r.status_code == 200:
+                    token = r.json()['data']['access_token']
+                    st.session_state['token'] = token
+                    u = requests.get(f"{DIRECTUS_URL}/users/me", headers={"Authorization": f"Bearer {token}"}, verify=False)
+                    st.session_state['user'] = u.json()['data']
+                    st.query_params["token"] = token
+                    login_sucesso = True
+                else: st.error("ACESSO NEGADO")
+            except: st.error("ERRO DE CONEXÃO")
+            if login_sucesso: st.rerun()
+    st.stop()
 
-def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
-    if not groq_key: 
-        return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
-    
-    client = Groq(api_key=groq_key)
-    
-    try:
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"TITULO: {title}\nSNIPPET: {snippet}\nLINK: {link}"}
-            ],
-            temperature=0.1,
-            response_format={"type": "json_object"}
-        )
-        return json.loads(completion.choices[0].message.content)
-    except:
-        return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro IA", "argumento_venda": "Falha na análise"}
+token = st.session_state['token']
+user = st.session_state['user']
+user_id = user['id']
+st.query_params["token"] = token
 
-def process_single_item(item, system_prompt):
-    titulo = item.get('title', '')
-    link = item.get('link', '')
-    snippet = item.get('snippet', '')
-    data_pub = item.get('date', 'Data n/d')
-    
-    analise = analyze_lead_groq(titulo, snippet, link, GROQ_API_KEY, system_prompt)
-    
-    return {
-        "item": item,
-        "analise": analise,
-        "titulo": titulo,
-        "link": link,
-        "snippet": snippet,
-        "data_pub": data_pub
-    }
+if 'setup_ok' not in st.session_state:
+    inicializar_crm_usuario(token, user_id)
+    st.session_state['setup_ok'] = True
+
+if 'smtp_loaded' not in st.session_state:
+    cfg = carregar_config_smtp(token)
+    if cfg:
+        st.session_state['smtp'] = {'host': cfg.get('smtp_host', 'smtp.gmail.com'), 'port': cfg.get('smtp_port', 587), 'user': cfg.get('smtp_user', ''), 'pass': cfg.get('smtp_pass', '')}
+        st.session_state['smtp_host_input'] = cfg.get('smtp_host', 'smtp.gmail.com')
+        st.session_state['smtp_port_input'] = int(cfg.get('smtp_port', 587))
+        st.session_state['smtp_user_input'] = cfg.get('smtp_user', '')
+        st.session_state['smtp_pass_input'] = cfg.get('smtp_pass', '')
+    st.session_state['smtp_loaded'] = True
+
+if "system_prompt_padrao" not in st.session_state:
+    st.session_state.system_prompt_padrao = "ATUE COMO Head de Vendas da Leanttro Digital. OBJETIVO Encontrar quem está COMPRANDO ou BUSCANDO serviços ignore quem está vendendo. PRODUTOS Catálogo online Site simples Automação de WhatsApp IA para negócios Identidade visual. TAREFAS 1 Identifique se o autor ESTÁ BUSCANDO o serviço Score 80 a 100. 2 Se for alguém VENDENDO ou agência concorrente Score é ZERO. 3 Identifique o NOME e o TIPO DE OPORTUNIDADE. SAÍDA JSON OBRIGATÓRIA { autor Nome de quem busca score 0 a 100 resumo_post Resumo do que a pessoa precisa produto_recomendado Serviço exato argumento_venda Como abordar para vender rápido }"
+
+if "saudacoes" not in st.session_state: st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi", "Fala"]
+if "delay_min" not in st.session_state: st.session_state.delay_min = 300
+if "delay_max" not in st.session_state: st.session_state.delay_max = 400
+if "blacklist" not in st.session_state: st.session_state.blacklist = set()
 
 with st.sidebar:
-    st.markdown(f"<h1 style='color: #fff; text-align: center; font-weight: 600;'>LEAN<span style='color:#7742df'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Intelligence Hub</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color:var(--neon)'>// USER {user.get('first_name').upper()}</h3>", unsafe_allow_html=True)
+    if st.button("LOGOUT / SAIR"):
+        st.session_state.clear()
+        st.query_params.clear()
+        st.rerun()
     st.divider()
-    
-    if GROQ_API_KEY: st.success("🟢 IA Conectada") 
-    else: st.error("🔴 Falta GROQ KEY")
-    
-    if SERPER_API_KEY: st.success("🟢 Google Search Ativo")
-    else: st.error("🔴 Falta SERPER KEY")
+    with st.expander("🛠️ CONSTRUTOR DE TABELA"):
+        nc = st.text_input("NOME COLUNA")
+        tc = st.selectbox("TIPO", ["Texto", "Número", "Data"])
+        if st.button("CRIAR COLUNA"):
+            if criar_coluna_dinamica(token, user_id, nc, tc): st.success("CRIADO"), time.sleep(1), st.rerun()
+    with st.expander("🤖 DADOS DA EMPRESA IA", expanded=True):
+        en = st.text_input("NOME EMPRESA", value="Leanttro Especialista em Jurídico")
+        ed = st.text_area("O QUE VENDE", value="Landing Pages de Alta Conversão para Advogados Produto foco www.leanttro.com/zenilda-adv Ajuda a passar autoridade e captar clientes qualificados")
+        if st.button("SALVAR CONTEXTO"): st.session_state['ctx'] = {'empresa': en, 'descricao': ed}, st.success("SALVO")
+    with st.expander("📧 SMTP CONFIG", expanded=True):
+        h = st.text_input("HOST", key="smtp_host_input")
+        p = st.number_input("PORT", key="smtp_port_input")
+        u = st.text_input("USER", key="smtp_user_input")
+        pw = st.text_input("PASS", type="password", key="smtp_pass_input")
+        if st.button("SALVAR E CONECTAR"):
+            st.session_state['smtp'] = {'host': h, 'port': p, 'user': u, 'pass': pw}
+            salvar_config_smtp(token, {'smtp_host': h, 'smtp_port': p, 'smtp_user': u, 'smtp_pass': pw})
+            st.toast("Configurações salvas e conectadas", icon="✅")
 
-    st.divider()
-    tracking_info = get_tracking_data()
-    limite_atual = get_daily_limit(tracking_info["start_date"])
-    st.markdown("### 🎯 Sistema Antiban")
-    st.markdown(f"Limite de hoje: {limite_atual} mensagens.")
-    st.markdown("Envios a cada 6 minutos (Máx 10/hora).")
+render_header()
+df = carregar_dados(token, user_id)
+df_bot = carregar_dados_bot(token)
 
-tab1, tab2, tab3 = st.tabs(["📡 RADAR DE OPORTUNIDADES (COMPRADORES)", "⛏️ MINERADOR ISOLADO (DADOS)", "⚙️ CONTROLE E SEGURANÇA"])
+COTA_MAXIMA = 100
+envios_realizados = contar_envios_hoje(token)
+saldo_envios = COTA_MAXIMA - envios_realizados
+
+k1, k2, k3 = st.columns(3)
+k1.metric("TOTAL LEADS CRM", len(df))
+k2.metric("LEADS BOT", len(df_bot))
+k3.metric("SALDO EMAIL DIARIO", saldo_envios)
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 RADAR DE INTENÇÃO", "⛏️ MINERADOR DE DADOS", "📋 CRM E AÇÕES", "🚀 DISPARO SNIPER", "⚙️ PROTEÇÃO WHATSAPP"])
 
 with tab1:
-    st.markdown("<h2 style='color:white'>RADAR DE <span style='color:#7742df'>OPORTUNIDADES REAIS</span></h2>", unsafe_allow_html=True)
-
+    st.markdown("### CAÇADOR DE OPORTUNIDADES B2B")
     c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
-
-    with c1:
-        origem = st.selectbox("Onde buscar?", list(SUGESTOES_STRATEGICAS.keys()))
-
-    with st.sidebar:
-        st.markdown("### 💡 Buscas de Intenção")
-        dicas_atuais = SUGESTOES_STRATEGICAS.get(origem, [])
-        for dica in dicas_atuais:
-            st.code(dica, language="text")
-
-    with c2:
-        termo = st.text_input("Intenção de busca:", placeholder="Ex: preciso de site")
-    with c3:
-        tempo = st.selectbox("Período:", ["Últimas 24 Horas", "Última Semana", "Último Mês", "Qualquer data"])
-    with c4:
-        qtd = st.number_input("Qtd", 1, 50, 10)
-
-    st.write("##")
+    with c1: origem = st.selectbox("Onde buscar", list(SUGESTOES_STRATEGICAS.keys()))
+    with c2: termo = st.text_input("Intenção de busca", placeholder="Ex preciso de site")
+    with c3: tempo = st.selectbox("Período", ["Últimas 24 Horas", "Última Semana", "Último Mês", "Qualquer data"])
+    with c4: qtd = st.number_input("Qtd", 1, 50, 10)
     btn = st.button("RASTREAR COMPRADORES", key="btn_radar")
 
     if btn and termo:
-        if not (GROQ_API_KEY and SERPER_API_KEY):
-            st.error("Configure as chaves no Dokploy.")
+        if not (GROQ_API_KEY and SERPER_API_KEY): st.error("Configure as chaves.")
         else:
-            periodo_api = ""
-            if "24 Horas" in tempo: periodo_api = "qdr:d"
-            elif "Semana" in tempo: periodo_api = "qdr:w"
-            elif "Mês" in tempo: periodo_api = "qdr:m"
-
-            query_final = termo
-            if origem == "LinkedIn (Postagens/Feed)":
-                query_final = f'site:linkedin.com/posts "{termo}"'
-            elif origem == "Sites de Freelance (Workana/99)":
-                query_final = f'(site:workana.com OR site:99freelas.com.br) "{termo}"'
-            elif origem == "Grupos Facebook / Web":
-                query_final = f'"{termo}"'
-
+            periodo_api = "qdr:d" if "24 Horas" in tempo else "qdr:w" if "Semana" in tempo else "qdr:m" if "Mês" in tempo else ""
+            query_final = f'site:linkedin.com/posts "{termo}"' if origem == "LinkedIn" else f'(site:workana.com OR site:99freelas.com.br) "{termo}"' if origem == "Sites de Freelance" else f'"{termo}"'
             resultados = search_google_serper(query_final, periodo_api, qtd)
-            
-            if not resultados:
-                st.warning("Nenhum sinal de compra. Tente outro termo.")
+            if not resultados: st.warning("Nenhum sinal encontrado.")
             else:
-                bar_text = st.empty()
                 prog = st.progress(0)
                 processed_results = []
-                data_export = [] 
-                
-                bar_text.text("IA filtrando apenas quem quer comprar...")
-                
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                     future_to_item = {executor.submit(process_single_item, item, st.session_state.system_prompt_padrao): item for item in resultados}
                     completed = 0
                     for future in concurrent.futures.as_completed(future_to_item):
-                        try:
-                            data = future.result()
-                            processed_results.append(data)
-                            analise_data = data['analise']
-                            data_export.append({
-                                "Titulo": data['titulo'],
-                                "Link": data['link'],
-                                "Score": analise_data.get('score'),
-                                "Autor": analise_data.get('autor'),
-                                "Resumo": analise_data.get('resumo_post'),
-                                "Produto": analise_data.get('produto_recomendado'),
-                                "Argumento": analise_data.get('argumento_venda')
-                            })
-                        except:
-                            pass
+                        try: processed_results.append(future.result())
+                        except: pass
                         completed += 1
                         prog.progress(completed / len(resultados))
-
-                bar_text.empty() 
-                processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
                 
-                if data_export:
-                    df_radar = pd.DataFrame(data_export)
-                    st.download_button(label="📥 BAIXAR RELATÓRIO DO RADAR", data=to_excel(df_radar), file_name="radar_leanttro.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
+                processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
                 for p in processed_results:
                     analise = p['analise']
                     score = analise.get('score', 0)
-                    if score < 50:
-                        continue
-
+                    if score < 50: continue
                     autor = analise.get('autor', 'Desconhecido')
-                    link = p['link']
-                    titulo = p['titulo']
-                    snippet = p['snippet']
-                    data_pub = p['data_pub']
-
                     css_class = "score-hot" if score >= 80 else "score-warm"
-                    icon = "🔥 HOT" if score >= 80 else "⚠️ MORNO"
-
-                    card_html = f"""
-                    <div class="lead-card {css_class}">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <span style="color: #7742df; font-weight:bold; font-family:monospace;">{icon} SCORE: {score}</span>
-                            <span class="tag-nicho">Autor: {autor}</span>
-                        </div>
-                        <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
-                    </div>
-                    <div style="margin-top:10px;"><a href="{link}" target="_blank" class="lead-title">{titulo}</a></div>
-                    <div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
-                    <div class="recommendation-box">
-                        <div class="rec-title">// ESTRATÉGIA:</div>
-                        <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
-                        <div class="rec-text"><span style="color:#666">RESUMO:</span> {analise.get('resumo_post', '')}</div>
-                        <div class="rec-text" style="color:#7742df; margin-top:5px;">💡 " {analise.get('argumento_venda', '')} "</div>
-                    </div>
-                    </div>
-                    """
-                    st.markdown(card_html, unsafe_allow_html=True)
+                    
+                    st.markdown(f'<div class="lead-card {css_class}"><div><span style="color:var(--purple); font-weight:bold;">SCORE {score}</span> <span class="tag-nicho">Autor {autor}</span></div><div style="margin-top:10px;"><a href="{p["link"]}" target="_blank" class="lead-title">{p["titulo"]}</a></div><div class="recommendation-box"><div style="color:white; font-weight:bold;">OFERTAR {analise.get("produto_recomendado", "N/A").upper()}</div><div class="rec-text">{analise.get("resumo_post", "")}</div></div></div>', unsafe_allow_html=True)
+                    if st.button(f"Salvar {autor} no CRM", key=f"save_{p['link']}"):
+                        salvar_lead_crm(token, user_id, {"nome": autor, "origem": "Radar", "url": p["link"], "obs": analise.get("resumo_post", "")})
+                        st.success("Salvo no CRM")
 
 with tab2:
-    st.markdown("<h2 style='color:white'>MINERADOR <span style='color:#7742df'>ISOLADO DE DADOS</span></h2>", unsafe_allow_html=True)
-    
+    st.markdown("### EXTRATOR DE CONTATOS LOCAIS")
     c1, c2, c3 = st.columns([2, 2, 2])
-    with c1:
-        nicho = st.text_input("Nicho:", value="Clínica Odontológica")
-    with c2:
-        cidade = st.text_input("Cidade Base:", value="São Paulo")
-    with c3:
-        fonte_alvo = st.selectbox("Fonte Específica:", list(FONTES_MINERADOR.keys()))
-
-    bairros_txt = st.text_area("Lista de Bairros (Separados por vírgula):", value="Centro, Pinheiros, Itaim Bibi", height=80)
+    with c1: nicho = st.text_input("Nicho", value="Clínica Odontológica")
+    with c2: cidade = st.text_input("Cidade Base", value="São Paulo")
+    with c3: fonte_alvo = st.selectbox("Fonte Específica", list(FONTES_MINERADOR.keys()))
+    bairros_txt = st.text_area("Lista de Bairros Separados por vírgula", value="Centro, Pinheiros", height=80)
     
-    if "leads_isolados" not in st.session_state:
-        st.session_state["leads_isolados"] = []
-
-    c_btn1, c_btn2 = st.columns([1, 1])
-
-    with c_btn1:
-        if st.button("🚀 INICIAR EXTRAÇÃO", key="btn_zap_mine"):
-            lista_bairros = [b.strip() for b in bairros_txt.split(',') if b.strip()]
-            novos_leads = []
-            
-            progress_text = st.empty()
-            bar = st.progress(0)
-            
-            prefixo_fonte = FONTES_MINERADOR[fonte_alvo]
-
-            for i, bairro in enumerate(lista_bairros):
-                progress_text.text(f"Escaneando {bairro.upper()} no {fonte_alvo}...")
-                
-                query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
-                queries = [
-                    f'{query_base} "whatsapp"',
-                    f'{query_base} "@gmail.com" OR "@hotmail.com"'
-                ]
-                
-                for q in queries:
-                    resultados = search_google_serper(q.strip(), period="", num_results=20)
-                    for r in resultados:
-                        texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
-                        zap = extrair_whatsapp(texto_completo)
-                        email = extrair_email(texto_completo)
-                        
-                        if zap or email:
-                            id_unico = zap if zap else email
-                            exists_global = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
-                            exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
-                            
-                            if not exists_global and not exists_local:
-                                novos_leads.append({
-                                    "Empresa": limpar_nome(r.get('title', '')),
-                                    "Nicho": nicho,
-                                    "Bairro": bairro,
-                                    "Whatsapp": zap if zap else "",
-                                    "Email": email if email else "",
-                                    "Fonte": fonte_alvo,
-                                    "Link": r.get('link')
-                                })
-                
-                bar.progress((i + 1) / len(lista_bairros))
-                time.sleep(0.5) 
-                
-            progress_text.text("Extração finalizada.")
-            if novos_leads:
-                st.session_state["leads_isolados"].extend(novos_leads)
-                st.success(f"{len(novos_leads)} CONTATOS ENCONTRADOS!")
-            else:
-                st.warning("Nada encontrado. Mude o nicho ou a fonte.")
-
-    if st.session_state["leads_isolados"]:
-        df = pd.DataFrame(st.session_state["leads_isolados"])
-        st.write("---")
-        st.markdown(f"### 📋 BASE DE DADOS: {len(df)} REGISTROS")
-        st.dataframe(df, width='stretch') 
+    if "leads_isolados" not in st.session_state: st.session_state["leads_isolados"] = []
+    
+    if st.button("INICIAR EXTRAÇÃO", key="btn_zap_mine"):
+        lista_bairros = [b.strip() for b in bairros_txt.split(',') if b.strip()]
+        novos_leads = []
+        bar = st.progress(0)
+        prefixo_fonte = FONTES_MINERADOR[fonte_alvo]
         
-        c_down, c_fire = st.columns(2)
-        with c_down:
-            st.download_button("📥 BAIXAR BASE", data=to_excel(df), file_name="base_minerada.xlsx")
-
-        with c_fire:
-            if st.button("🔥 DISPARAR PARA NÚMEROS EXTRAÍDOS"):
-                df_zap = df[df['Whatsapp'] != ""]
-                if len(df_zap) == 0:
-                    st.warning("Nenhum contato com WhatsApp nesta lista.")
-                else:
-                    sucessos = 0
-                    erros = 0
-                    duplicates = 0
-                    limit_break = False
-                    msg_bar = st.progress(0)
-                    
-                    tracking = get_tracking_data()
-                    today_str = str(datetime.date.today())
-                    current_hour_str = str(datetime.datetime.now().strftime("%Y-%m-%d %H"))
-                    
-                    if tracking["last_run_date"] != today_str:
-                        tracking["sent_today"] = 0
-                        tracking["last_run_date"] = today_str
-                        
-                    if tracking["last_run_hour"] != current_hour_str:
-                        tracking["sent_this_hour"] = 0
-                        tracking["last_run_hour"] = current_hour_str
-                        
-                    daily_limit = get_daily_limit(tracking["start_date"])
-                    
-                    for idx, row in df_zap.iterrows():
-                        msg_bar.progress((idx + 1) / len(df_zap))
-                        
-                        if tracking["sent_today"] >= daily_limit:
-                            st.warning(f"Limite diário de {daily_limit} atingido.")
-                            limit_break = True
-                            break
-                            
-                        if tracking["sent_this_hour"] >= 10:
-                            st.warning("Limite de 10 por hora atingido. Aguarde a virada de hora.")
-                            limit_break = True
-                            break
-                        
-                        numero = row['Whatsapp']
-                        if numero in st.session_state.blacklist:
-                            duplicates += 1
-                            continue
-                        
-                        try:
-                            saudacao_escolhida = random.choice(st.session_state.saudacoes) if st.session_state.saudacoes else "Opa"
-                            mensagem_com_saudacao = st.session_state.mensagem_padrao.replace("{saudacao}", saudacao_escolhida)
-                            primeiro_nome = row['Empresa'].split(' ')[0]
-                            mensagem_fria = mensagem_com_saudacao.format(primeiro_nome=primeiro_nome, bairro=row['Bairro'])
-                            
-                            payload = {"number": numero, "message": mensagem_fria}
-                            res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
-                            
-                            if res.status_code == 200:
-                                sucessos += 1
-                                tracking["sent_today"] += 1
-                                tracking["sent_this_hour"] += 1
-                                st.session_state.blacklist.add(numero)
-                                save_tracking_data(tracking)
-                            else:
-                                erros += 1
-                        except:
-                            erros += 1
-                        
-                        delay = random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max))
-                        time.sleep(delay)
-                    
-                    if limit_break:
-                        st.warning(f"Travado pelo limite de segurança. Enviados agora: {sucessos} | Total do dia: {tracking['sent_today']}")
-                    else:
-                        st.success(f"Finalizado. Enviados agora: {sucessos} | Total do dia: {tracking['sent_today']} | Falhas: {erros} | Duplicados: {duplicates}")
+        for i, bairro in enumerate(lista_bairros):
+            query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
+            for q in [f'{query_base} "whatsapp"', f'{query_base} "@gmail.com" OR "@hotmail.com"']:
+                resultados = search_google_serper(q.strip(), period="", num_results=20)
+                for r in resultados:
+                    texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
+                    zap = extrair_whatsapp(texto_completo)
+                    email = extrair_email(texto_completo)
+                    if zap or email:
+                        if not any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"]):
+                            novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Whatsapp": zap if zap else "", "Email": email if email else "", "Fonte": fonte_alvo, "Link": r.get('link')})
+            bar.progress((i + 1) / len(lista_bairros))
+            time.sleep(0.5) 
+        if novos_leads:
+            st.session_state["leads_isolados"].extend(novos_leads)
+            st.success(f"{len(novos_leads)} CONTATOS ENCONTRADOS")
+    
+    if st.session_state["leads_isolados"]:
+        df_mine = pd.DataFrame(st.session_state["leads_isolados"])
+        st.dataframe(df_mine, width='stretch')
+        if st.button("SALVAR TODOS NO CRM"):
+            for _, row in df_mine.iterrows():
+                salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": row["Email"], "telefone": row["Whatsapp"], "origem": "Minerador", "url": row["Link"]})
+            st.success("Enviados para o banco de dados")
+            st.session_state["leads_isolados"] = []
 
 with tab3:
-    st.markdown("<h2 style='color:white'>⚙️ CONTROLE E <span style='color:#7742df'>SEGURANÇA</span></h2>", unsafe_allow_html=True)
+    with st.expander("FILTRAR E PERSONALIZAR TABELA", expanded=True):
+        f_c1, f_c2 = st.columns([1, 1])
+        with f_c1:
+            all_cols = list(df.columns)
+            if 'cols_visiveis_save' not in st.session_state: st.session_state['cols_visiveis_save'] = all_cols
+            cols_visiveis = st.multiselect("Escolha e ordene as colunas", all_cols, default=st.session_state['cols_visiveis_save'])
+            if cols_visiveis != st.session_state['cols_visiveis_save']: st.session_state['cols_visiveis_save'] = cols_visiveis; st.rerun()
+        with f_c2:
+            col_para_filtrar = st.selectbox("Filtrar na coluna", ["Sem Filtro"] + all_cols)
+            filtro_valores = []
+            if col_para_filtrar != "Sem Filtro":
+                valores_unicos = [str(x) for x in df[col_para_filtrar].unique()]
+                filtro_valores = st.multiselect(f"Selecione valores de {col_para_filtrar}", valores_unicos)
     
-    st.markdown("### ✍️ Mensagem Fria")
-    nova_mensagem = st.text_area("Edite a mensagem:", value=st.session_state.mensagem_padrao, height=100)
-    if nova_mensagem != st.session_state.mensagem_padrao:
-        st.session_state.mensagem_padrao = nova_mensagem
-    
+    df_visual = df.copy()
+    if col_para_filtrar != "Sem Filtro" and filtro_valores: df_visual = df_visual[df_visual[col_para_filtrar].astype(str).isin(filtro_valores)]
+    if cols_visiveis:
+        cols_final = [c for c in cols_visiveis]
+        if 'id' not in cols_final and 'id' in df_visual.columns: cols_final.append('id')
+        df_visual = df_visual[cols_final]
+
+    sub_t1, sub_t2 = st.tabs(["TABELA MESTRE", "TABELA BOT"])
+    with sub_t1:
+        col_config = {'id': st.column_config.Column("id", disabled=True, hidden=True)} if 'id' in df_visual.columns and 'id' not in cols_visiveis else {}
+        edited = st.data_editor(df_visual, num_rows="dynamic", use_container_width=True, key="editor", column_config=col_config)
+        if st.button("SALVAR ALTERACOES NA BASE"):
+            chg = st.session_state["editor"]
+            for idx in chg.get("deleted_rows", []):
+                try: requests.delete(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}/{df_visual.iloc[idx]['id']}", headers={"Authorization": f"Bearer {token}"}, verify=False)
+                except: pass
+            for idx, row in chg["edited_rows"].items():
+                try: atualizar_item(token, user_id, df_visual.iloc[int(idx)]['id'], row)
+                except: pass
+            max_id = 0
+            df_fresh = carregar_dados(token, user_id)
+            if not df_fresh.empty and 'id' in df_fresh.columns: max_id = pd.to_numeric(df_fresh['id'], errors='coerce').max()
+            proximo_id = int(max_id) + 1 if not pd.isna(max_id) else 1
+            for row in chg["added_rows"]:
+                if 'id' not in row or not row['id']: row['id'] = proximo_id; proximo_id += 1
+                requests.post(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}", json=row, headers={"Authorization": f"Bearer {token}"}, verify=False)
+            st.toast("Dados atualizados", icon="✅")
+            time.sleep(1)
+            st.rerun()
+    with sub_t2:
+        st.dataframe(df_bot, use_container_width=True, height=400)
+
     st.divider()
+    st.markdown("### AÇÕES RÁPIDAS LINHA UNICA")
+    col_fonte, col_cli, col_vazio = st.columns([1, 2, 3])
+    with col_fonte: fonte = st.radio("Fonte de Dados", ["Base Mestre", "Bot Automático"], horizontal=True)
+    df_ativo = df if fonte == "Base Mestre" else df_bot
+    with col_cli: sel_cli = st.selectbox("Selecione o Cliente para Agir", ["Selecione"] + (df_ativo['nome'].tolist() if not df_ativo.empty and 'nome' in df_ativo.columns else []))
     
-    st.markdown("### 🗣️ Variações de Saudação")
-    saudacoes_input = st.text_input("Lista separada por vírgula:", value=", ".join(st.session_state.saudacoes))
-    if saudacoes_input:
-        nova_lista = [s.strip() for s in saudacoes_input.split(",") if s.strip()]
-        if nova_lista and nova_lista != st.session_state.saudacoes:
-            st.session_state.saudacoes = nova_lista
+    if sel_cli != "Selecione" and not df_ativo.empty:
+        dados_cli = df_ativo[df_ativo['nome'] == sel_cli].iloc[0]
+        act_c1, act_c2 = st.columns(2)
+        with act_c1:
+            st.markdown("#### WHATSAPP")
+            if st.button("GERAR TEXTO ZAP IA"): st.session_state['ai_zap_text'] = gerar_whatsapp_ia(st.session_state.get('ctx', {}), dados_cli); st.rerun()
+            msg_zap = st.text_area("Mensagem", value=st.session_state.get('ai_zap_text', "Olá tudo bem"), height=100)
+            nums = re.sub(r'\D', '', str(dados_cli.get('telefone', '')))
+            if nums: st.link_button("ENVIAR WHATSAPP", f"https://api.whatsapp.com/send?phone={nums if nums.startswith('55') and len(nums) > 11 else '55'+nums}&text={urllib.parse.quote(msg_zap)}", use_container_width=True)
+        with act_c2:
+            st.markdown("#### GMAIL IA")
+            if st.button("GERAR TEXTO COM IA"):
+                assunto_ia, corpo_ia = gerar_copy_ia(st.session_state.get('ctx', {}), dados_cli)
+                st.link_button("ABRIR NO GMAIL", f"https://mail.google.com/mail/?view=cm&fs=1&to={dados_cli.get('email', '')}&su={urllib.parse.quote(assunto_ia)}&body={urllib.parse.quote(corpo_ia.replace('{nome}', dados_cli.get('nome', '')))}", use_container_width=True)
+
+with tab4:
+    st.markdown("### DISPARO EM MASSA EMAIL E WHATSAPP")
+    df_unificado = pd.concat([df.assign(origem='Mestre'), df_bot.assign(origem='Bot')], ignore_index=True) if not df.empty and not df_bot.empty else df if not df.empty else df_bot
+    if not df_unificado.empty: df_unificado['label'] = df_unificado.get('nome', df_unificado.get('email', 'Desc')) + " " + df_unificado.get('origem', '')
     
-    st.divider()
-    
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        alvos_finais = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
+        metodo_envio = st.radio("MÉTODO DE DISPARO", ["Email SMTP", "WhatsApp Baileys API"], horizontal=True)
+    with c2:
+        if metodo_envio == "Email SMTP":
+            assunto = st.text_input("ASSUNTO", key="ass_massa")
+            corpo = st.text_area("CORPO HTML Use {nome}", height=150, key="body_massa")
+            if st.button("GERAR COPY EMAIL IA"): sug_a, sug_c = gerar_copy_ia(st.session_state.get('ctx', {})); st.info(sug_a); st.code(sug_c)
+        else:
+            msg_wpp_massa = st.text_area("MENSAGEM WHATSAPP Use {nome}", value="Opa {nome} tudo bem", height=150)
+            st.info("O envio usa as travas de proteção da aba Configuração")
+            tracking = get_tracking_data(user_id)
+            st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
+
+    if st.button("🚀 INICIAR DISPARO EM MASSA"):
+        bar = st.progress(0)
+        log = st.empty()
+        
+        if metodo_envio == "Email SMTP":
+            if not st.session_state.get('smtp'): st.error("CONFIGURE O SMTP NA SIDEBAR")
+            elif len(alvos_finais) > saldo_envios: st.error("SELEÇÃO MAIOR QUE SALDO")
+            else:
+                for i, label_sel in enumerate(alvos_finais):
+                    tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
+                    email_real = str(tgt.get('email', '')).strip()
+                    if not email_real or "@" not in email_real: continue
+                    log_id = registrar_log_envio(token, email_real, assunto, "Enviando")
+                    url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id else None
+                    res, txt = enviar_email_smtp(st.session_state['smtp'], email_real, assunto, corpo.replace("{nome}", str(tgt.get('nome', ''))), None, url_pixel)
+                    if log_id: atualizar_status_envio(token, log_id, "Enviado" if res else f"Erro {txt}")
+                    if res and tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
+                    log.success(f"ENVIADO PARA {email_real}") if res else log.error(f"ERRO {email_real}")
+                    time.sleep(random.randint(5, 15))
+                    bar.progress((i+1)/len(alvos_finais))
+        
+        elif metodo_envio == "WhatsApp Baileys API":
+            tracking = get_tracking_data(user_id)
+            limit_break = False
+            daily_limit = get_daily_limit(tracking["start_date"])
+            today_str = str(date.today())
+            current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
+            
+            if tracking["last_run_date"] != today_str: tracking["sent_today"] = 0; tracking["last_run_date"] = today_str
+            if tracking["last_run_hour"] != current_hour_str: tracking["sent_this_hour"] = 0; tracking["last_run_hour"] = current_hour_str
+
+            for i, label_sel in enumerate(alvos_finais):
+                if tracking["sent_today"] >= daily_limit: st.warning("Limite diário atingido"); break
+                if tracking["sent_this_hour"] >= 10: st.warning("Limite de hora atingido"); break
+                
+                tgt = df_unificado[df_unificado['label'] == label_sel].iloc[0]
+                numero = extrair_whatsapp(str(tgt.get('telefone', '')))
+                if not numero: continue
+                
+                try:
+                    payload = {"number": numero, "message": msg_wpp_massa.replace("{nome}", str(tgt.get('nome', '')))}
+                    res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
+                    if res.status_code == 200:
+                        tracking["sent_today"] += 1
+                        tracking["sent_this_hour"] += 1
+                        save_tracking_data(user_id, tracking)
+                        log.success(f"WPP ENVIADO PARA {numero}")
+                        if tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
+                    else: log.error("Erro na API do Baileys")
+                except: log.error("Falha de conexão com disparador")
+                
+                time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
+                bar.progress((i+1)/len(alvos_finais))
+
+with tab5:
+    st.markdown("### PROTEÇÃO DO WHATSAPP E LIMITES")
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("### ⏱️ Delay (Proteção Extrema)")
-        min_delay = st.number_input("Mínimo (Travado em 300s / 5min):", min_value=300, max_value=600, value=max(300, st.session_state.delay_min))
-        if min_delay != st.session_state.delay_min:
-            st.session_state.delay_min = min_delay
+        st.session_state.delay_min = st.number_input("Tempo Minimo Segundos Travado em 300", min_value=300, max_value=600, value=max(300, st.session_state.delay_min))
     with col2:
-        max_delay = st.number_input("Máximo:", min_value=350, max_value=800, value=max(350, st.session_state.delay_max))
-        if max_delay != st.session_state.delay_max:
-            st.session_state.delay_max = max_delay
+        st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=350, max_value=800, value=max(350, st.session_state.delay_max))
     
     st.divider()
-    
-    st.markdown("### 🔒 Progresso de Envios")
-    tracking = get_tracking_data()
+    tracking = get_tracking_data(user_id)
     daily_lim = get_daily_limit(tracking["start_date"])
-    
     col_a, col_b, col_c = st.columns(3)
-    with col_a:
-        st.metric("Limite de hoje", daily_lim)
-    with col_b:
-        st.metric("Enviados hoje", tracking["sent_today"])
-    with col_c:
-        st.metric("Enviados nesta hora", f"{tracking['sent_this_hour']} / 10")
+    col_a.metric("Limite Seguro de Hoje", daily_lim)
+    col_b.metric("Disparos Hoje", tracking["sent_today"])
+    col_c.metric("Disparos Nesta Hora", f"{tracking['sent_this_hour']} 10")
     
-    if st.button("🔄 Zerar dados (Perigo)"):
-        os.remove(TRACKING_FILE)
-        st.session_state.blacklist = set()
+    if st.button("Zerar Contadores de Segurança Perigo"):
+        os.remove(get_tracking_file(user_id))
         st.rerun()
