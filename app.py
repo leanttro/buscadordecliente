@@ -94,7 +94,7 @@ st.markdown("""
 DIRECTUS_URL = os.getenv("DIRECTUS_URL", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
-TRACKING_WEBHOOK_KEY = "0deea9a4-ce23-4aee-bb82-d9422bd8e15f"
+TRACKING_WEBHOOK_KEY = os.getenv("TRACKING_WEBHOOK_KEY", "")
 
 groq_client = None
 if GROQ_API_KEY:
@@ -458,7 +458,7 @@ if 'token' not in st.session_state:
         st.markdown("<p style='text-align:center; color:#888'>ACESSO RESTRITO</p>", unsafe_allow_html=True)
         email = st.text_input("E-MAIL")
         senha = st.text_input("SENHA", type="password")
-        if st.button("ACESSAR SISTEMA", use_container_width=True):
+        if st.button("ACESSAR SISTEMA", width='stretch'):
             login_sucesso = False
             try:
                 r = requests.post(f"{DIRECTUS_URL}/auth/login", json={"email": email, "password": senha}, verify=False)
@@ -674,7 +674,7 @@ with tab3:
     sub_t1, sub_t2 = st.tabs(["TABELA MESTRE", "TABELA BOT"])
     with sub_t1:
         col_config = {'id': st.column_config.Column("id", disabled=True, hidden=True)} if 'id' in df_visual.columns and 'id' not in cols_visiveis else {}
-        edited = st.data_editor(df_visual, num_rows="dynamic", use_container_width=True, key="editor", column_config=col_config)
+        edited = st.data_editor(df_visual, num_rows="dynamic", width='stretch', key="editor", column_config=col_config)
         if st.button("SALVAR ALTERACOES NA BASE"):
             chg = st.session_state["editor"]
             for idx in chg.get("deleted_rows", []):
@@ -694,7 +694,7 @@ with tab3:
             time.sleep(1)
             st.rerun()
     with sub_t2:
-        st.dataframe(df_bot, use_container_width=True, height=400)
+        st.dataframe(df_bot, width='stretch', height=400)
 
     st.divider()
     st.markdown("### AÇÕES RÁPIDAS LINHA UNICA")
@@ -711,12 +711,12 @@ with tab3:
             if st.button("GERAR TEXTO ZAP IA"): st.session_state['ai_zap_text'] = gerar_whatsapp_ia(st.session_state.get('ctx', {}), dados_cli); st.rerun()
             msg_zap = st.text_area("Mensagem", value=st.session_state.get('ai_zap_text', "Olá tudo bem"), height=100)
             nums = re.sub(r'\D', '', str(dados_cli.get('telefone', '')))
-            if nums: st.link_button("ENVIAR WHATSAPP", f"https://api.whatsapp.com/send?phone={nums if nums.startswith('55') and len(nums) > 11 else '55'+nums}&text={urllib.parse.quote(msg_zap)}", use_container_width=True)
+            if nums: st.link_button("ENVIAR WHATSAPP", f"https://api.whatsapp.com/send?phone={nums if nums.startswith('55') and len(nums) > 11 else '55'+nums}&text={urllib.parse.quote(msg_zap)}", width='stretch')
         with act_c2:
             st.markdown("#### GMAIL IA")
             if st.button("GERAR TEXTO COM IA"):
                 assunto_ia, corpo_ia = gerar_copy_ia(st.session_state.get('ctx', {}), dados_cli)
-                st.link_button("ABRIR NO GMAIL", f"https://mail.google.com/mail/?view=cm&fs=1&to={dados_cli.get('email', '')}&su={urllib.parse.quote(assunto_ia)}&body={urllib.parse.quote(corpo_ia.replace('{nome}', dados_cli.get('nome', '')))}", use_container_width=True)
+                st.link_button("ABRIR NO GMAIL", f"https://mail.google.com/mail/?view=cm&fs=1&to={dados_cli.get('email', '')}&su={urllib.parse.quote(assunto_ia)}&body={urllib.parse.quote(corpo_ia.replace('{nome}', dados_cli.get('nome', '')))}", width='stretch')
 
 with tab4:
     st.markdown("### DISPARO EM MASSA EMAIL E WHATSAPP")
@@ -828,7 +828,7 @@ with tab4:
                         assunto_final = assunto.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())    
                         
                         log_id = registrar_log_envio(token, email_real, assunto_final, "Enviando")
-                        url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id else None
+                        url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id and TRACKING_WEBHOOK_KEY else None
                         
                         texto_final = corpo.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
                         
@@ -894,7 +894,7 @@ with tab4:
                 df_ext = pd.read_excel(up_file)
                 df_ext.columns = [str(c).lower().strip() for c in df_ext.columns]
                 
-                st.dataframe(df_ext.head(), use_container_width=True)
+                st.dataframe(df_ext.head(), width='stretch')
                 st.info(f"{len(df_ext)} LEADS ENCONTRADOS NO ARQUIVO")
 
                 col_imp_btn, col_imp_info = st.columns([1, 2])
@@ -1068,7 +1068,7 @@ with tab5:
         p_val = st.number_input("SMTP PORT", value=st.session_state.get('smtp_port_input', 587))
         pw_val = st.text_input("SMTP PASS (Senha de App)", type="password", value=st.session_state.get('smtp_pass_input', ''))
         
-    if st.button("💾 SALVAR CONFIGURAÇÕES NO BANCO", use_container_width=True):
+    if st.button("💾 SALVAR CONFIGURAÇÕES NO BANCO", width='stretch'):
         st.session_state['smtp'] = {'host': h_val, 'port': p_val, 'user': u_val, 'pass': pw_val}
         st.session_state['smtp_host_input'] = h_val
         st.session_state['smtp_port_input'] = p_val
