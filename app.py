@@ -7,23 +7,20 @@ import concurrent.futures
 import pandas as pd
 import re
 import random
+import datetime
 from io import BytesIO
 from groq import Groq
 import urllib3
 import functools
 
-# FIX SSL: Ignora avisos de certificados autoassinados
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="LEANTTRO | Buscador de Oportunidades", layout="wide", page_icon="🚀")
 
-# ESTILO VISUAL (IDENTIDADE LEANTTRO CHIC)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap');
     
-    /* FIX: REMOVER BARRA BRANCA DO TOPO */
     header {
         visibility: hidden;
         height: 0px;
@@ -32,16 +29,13 @@ st.markdown("""
         visibility: hidden;
         height: 0px;
     }
-    /* Ajusta o padding para o conteúdo subir e ocupar o espaço vazio */
     .block-container {
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
     }
     
-    /* CONFIGURAÇÃO GERAL */
     .stApp { background-color: #050505; color: #E5E7EB; font-family: 'Kanit', sans-serif; }
     
-    /* BARRA LATERAL (SIDEBAR) */
     section[data-testid="stSidebar"] {
         background-color: #111111 !important;
     }
@@ -55,20 +49,17 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* CORREÇÃO DE VISIBILIDADE: CAIXAS DE CÓDIGO (st.code) */
     .stCode pre, .stCode code {
         background-color: #1a1a1a !important;
         color: #7742df !important;
         border: 1px solid #333 !important;
     }
 
-    /* TEXTOS/LABELS DOS INPUTS (BRANCO) */
     .stTextInput label, .stSelectbox label, .stNumberInput label, .stTextArea label {
         color: #ffffff !important;
         font-size: 14px !important;
     }
     
-    /* Caixa de Informação Customizada */
     .custom-info-box {
         background-color: #1a1a1a;
         border-left: 4px solid #7742df;
@@ -81,7 +72,6 @@ st.markdown("""
         line-height: 1.5;
     }
 
-    /* Botão Principal Chic */
     div.stButton > button { 
         background-color: #7742df; color: #ffffff; border: none; 
         border-radius: 4px; font-weight: 600; width: 100%; 
@@ -93,13 +83,11 @@ st.markdown("""
         box-shadow: 0 0 15px rgba(119, 66, 223, 0.3);
     }
     
-    /* Inputs */
     .stTextInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stNumberInput > div > div > input { color: #fff; background-color: #111; border: 1px solid #333; }
     .stSelectbox > div > div { background-color: #111; color: white; border: 1px solid #333; }
     .stTextArea > div > div > textarea { color: #fff; background-color: #111; border: 1px solid #333; }
 
-    /* Card do Lead */
     .lead-card {
         background-color: #0a0a0a !important; padding: 25px; border-radius: 8px;
         border: 1px solid #222; margin-bottom: 20px;
@@ -107,7 +95,6 @@ st.markdown("""
     }
     .lead-card:hover { border-color: #7742df; }
     
-    /* Scores */
     .score-hot { border-left: 4px solid #7742df; } 
     .score-warm { border-left: 4px solid #555; }    
     .score-cold { border-left: 4px solid #333; }    
@@ -128,7 +115,6 @@ st.markdown("""
     .rec-title { color: #7742df; font-weight: bold; font-size: 12px; font-family: monospace; }
     .rec-text { font-size: 13px; color: #ddd; margin-top: 4px; }
     
-    /* ESTILO DAS ABAS (TABS) */
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
     .stTabs [data-baseweb="tab"] { background-color: #111; border: 1px solid #333; color: #888; border-radius: 4px; }
     .stTabs [aria-selected="true"] { background-color: #7742df !important; color: #ffffff !important; font-weight: bold; border-color: #7742df; }
@@ -138,122 +124,118 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# CARREGAR CHAVES
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+TRACKING_FILE = "leanttro_tracking.json"
 
-# INICIALIZAÇÃO DAS CONFIGURAÇÕES NO SESSION STATE
+def get_tracking_data():
+    if os.path.exists(TRACKING_FILE):
+        with open(TRACKING_FILE, 'r') as f:
+            return json.load(f)
+    else:
+        data = {
+            "start_date": str(datetime.date.today()),
+            "last_run_date": str(datetime.date.today()),
+            "sent_today": 0,
+            "last_run_hour": str(datetime.datetime.now().strftime("%Y-%m-%d %H")),
+            "sent_this_hour": 0
+        }
+        with open(TRACKING_FILE, 'w') as f:
+            json.dump(data, f)
+        return data
+
+def save_tracking_data(data):
+    with open(TRACKING_FILE, 'w') as f:
+        json.dump(data, f)
+
+def get_daily_limit(start_date_str):
+    start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    today = datetime.date.today()
+    days_passed = (today - start_date).days
+    weeks_passed = days_passed // 7
+    limit = 30 + (weeks_passed * 10)
+    return min(limit, 120)
+
 if "mensagem_padrao" not in st.session_state:
     st.session_state.mensagem_padrao = "Opa {primeiro_nome}, tudo bem? Vi que vocês atendem no {bairro}. Tentei achar o site de vcs no Google e não consegui, tá fora do ar?"
 
 if "system_prompt_padrao" not in st.session_state:
     st.session_state.system_prompt_padrao = """
-    ATUE COMO: Head de Vendas da 'Leanttro Digital', focado em fechar negócios RÁPIDOS hoje.
+    ATUE COMO: Head de Vendas da Leanttro Digital.
     
-    SEUS PRODUTOS (LEANTTRO.COM) - PRIORIDADE 1 (DINHEIRO RÁPIDO HOJE):
-    1. CATÁLOGOS E MENUS: "Cardápio digital", "Catálogo para WhatsApp", "Menu online".
-    2. DESIGN RÁPIDO: "Logo urgente", "Arte para lanchonete", "Post para redes sociais".
-    3. SITES SIMPLES: "Site rápido", "Link na bio estruturado", "Landing page simples".
+    OBJETIVO: Encontrar quem está COMPRANDO ou BUSCANDO serviços, ignore quem está vendendo.
     
-    OBJETIVO SECUNDÁRIO - PRIORIDADE 2 (PROJETOS MAIORES):
-    - "E-commerce completo", "Sistemas complexos", "Automação", "Dashboard".
+    PRODUTOS: Catálogo online, Site simples, Automação de WhatsApp, IA para negócios, Identidade visual.
     
     TAREFAS:
-    1. Identifique o NOME e o TIPO DE OPORTUNIDADE.
-    2. CALCULE O SCORE:
-       - URGENTE/RÁPIDO (Catálogo, Logo, Site simples para HOJE) = SCORE ALTO (80-100). 🔥
-       - PROJETO MAIOR (E-commerce, Sistema, Vaga) = SCORE MÉDIO (50-79). ⚠️
-       - LIXO/IRRELEVANTE = SCORE BAIXO (0-49). ❄️
+    1. Identifique se o autor ESTÁ BUSCANDO o serviço (Score 80 a 100).
+    2. Se for alguém VENDENDO ou agência concorrente, Score é ZERO.
+    3. Identifique o NOME e o TIPO DE OPORTUNIDADE.
     
     SAÍDA JSON OBRIGATÓRIA:
-    {{
-        "autor": "Nome (ou Empresa)",
+    {
+        "autor": "Nome de quem busca",
         "score": (0-100),
-        "resumo_post": "Resumo em 10 palavras",
-        "produto_recomendado": "Serviço Leanttro (Catálogo, Logo, Site Simples)",
-        "argumento_venda": "Foque em entrega IMEDIATA e facilidade. Ex: 'Entrego seu catálogo rodando hoje mesmo no WhatsApp'."
-    }}
+        "resumo_post": "Resumo do que a pessoa precisa",
+        "produto_recomendado": "Serviço exato",
+        "argumento_venda": "Como abordar para vender rápido"
+    }
     """
 
-# NOVAS CONFIGURAÇÕES DE SEGURANÇA E ANTI-BLOQUEIO
 if "saudacoes" not in st.session_state:
-    st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi"]
+    st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi", "Fala"]
 
 if "delay_min" not in st.session_state:
-    st.session_state.delay_min = 5
+    st.session_state.delay_min = 300
 
 if "delay_max" not in st.session_state:
-    st.session_state.delay_max = 15
-
-if "daily_limit" not in st.session_state:
-    st.session_state.daily_limit = 50
+    st.session_state.delay_max = 400
 
 if "blacklist" not in st.session_state:
     st.session_state.blacklist = set()
 
-if "sent_count" not in st.session_state:
-    st.session_state.sent_count = 0
-
-# ESTRATÉGIA DE SUGESTÕES (ATUALIZADA PARA DINHEIRO RÁPIDO)
 SUGESTOES_STRATEGICAS = {
     "Sites de Freelance (Workana/99)": [
-        "procuro criador de cardápio digital", 
-        "preciso de designer para logo urgente", 
-        "indicação para fazer menu de whatsapp", 
-        "alguém para criar site simples hoje", 
-        "procuro arte rápida para lanchonete" 
+        "procuro desenvolvedor site", 
+        "preciso de automação whatsapp", 
+        "criar catálogo online", 
+        "busco especialista em IA", 
+        "fazer landing page urgente" 
     ],
     "LinkedIn (Postagens/Feed)": [
-        "preciso de cardápio digital",
-        "busco designer para logo",
-        "indicação criador de catálogo" , 
-        "alguém para fazer menu whatsapp",
-        "preciso de site simples urgente", 
-        "urgente arte para redes sociais" 
+        "alguém recomenda empresa para site",
+        "busco profissional automação",
+        "indicação criador de catálogo", 
+        "preciso integrar IA no meu negócio",
+        "busco agência para landing page"
     ],
-    "LinkedIn (Empresas)": [
-        "Hamburgueria Delivery", 
-        "Confeitaria", 
-        "Pizzaria",
-        "Loja de Roupas", 
-        "Marmitaria" 
-    ],
-    "Instagram/Negócios (Estratégia Maps)": [
-        "hamburgueria delivery", 
-        "doceria gourmet", 
-        "loja de roupas", 
-        "marmitaria", 
-        "artesanato", 
-        "confeitaria artesanal" 
-    ],
-    "Google (Geral)": [
-        "contratar criador de cardápio digital",
-        "designer freelancer logo urgente",
-        "fazer catálogo whatsapp",
-        "orçamento site simples",
-        "preciso de arte para lanchonete"
+    "Grupos Facebook / Web": [
+        "preciso de um site", 
+        "alguém faz catálogo digital", 
+        "procuro quem faça automação",
+        "indicação de desenvolvedor web", 
+        "orçamento para site" 
     ]
 }
 
-# FUNÇÕES AUXILIARES
+FONTES_MINERADOR = {
+    "Instagram": "site:instagram.com",
+    "Facebook": "site:facebook.com",
+    "LinkedIn": "site:linkedin.com/company",
+    "Geral (Maps/Web)": ""
+}
 
 def to_excel(df):
-    """Converte DataFrame para bytes de Excel para download"""
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Leads')
     return output.getvalue()
 
 def extrair_email(texto):
-    """Extrai e-mail de um texto usando Regex"""
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', str(texto))
     return match.group(0) if match else None
 
 def extrair_whatsapp(texto):
-    """
-    Regex agressivo para pegar celulares do Brasil (com ou sem 55, com ou sem parênteses).
-    Foca em números que começam com 9 (celulares).
-    """
     padrao = r'(?:(?:\+|00)?55\s?)?(?:\(?([1-9][0-9])\)?\s?)?(?:((?:9\d|[2-9])\d{3})\-?(\d{4}))'
     match = re.search(padrao, str(texto))
     
@@ -265,10 +247,10 @@ def extrair_whatsapp(texto):
         return numero_limpo
     return None
 
-def limpar_nome_insta(titulo):
-    """Limpa o título do Instagram/Social"""
+def limpar_nome(titulo):
     if "•" in titulo: return titulo.split("•")[0].strip()
     if "-" in titulo: return titulo.split("-")[0].strip()
+    if "|" in titulo: return titulo.split("|")[0].strip()
     return titulo[:50]
 
 def search_google_serper(query, period, num_results=10):
@@ -290,18 +272,13 @@ def search_google_serper(query, period, num_results=10):
 
     try:
         response = requests.request("POST", url, headers=headers, data=payload)
-        
         if response.status_code != 200:
-            print(f"ERRO SERPER: {response.status_code} - {response.text}")
             return []
-            
         return response.json().get("organic", [])
-    except Exception as e:
-        print(f"ERRO CONEXÃO SERPER: {e}")
+    except:
         return []
 
 def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
-    """Analisa o post e tenta extrair o autor e contexto"""
     if not groq_key: 
         return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     
@@ -318,11 +295,10 @@ def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
             response_format={"type": "json_object"}
         )
         return json.loads(completion.choices[0].message.content)
-    except Exception as e:
+    except:
         return {"score": 0, "autor": "Erro", "produto_recomendado": "Erro IA", "argumento_venda": "Falha na análise"}
 
 def process_single_item(item, system_prompt):
-    """Função wrapper para rodar em paralelo"""
     titulo = item.get('title', '')
     link = item.get('link', '')
     snippet = item.get('snippet', '')
@@ -339,9 +315,6 @@ def process_single_item(item, system_prompt):
         "data_pub": data_pub
     }
 
-# INTERFACE PRINCIPAL
-
-# Sidebar Global
 with st.sidebar:
     st.markdown(f"<h1 style='color: #fff; text-align: center; font-weight: 600;'>LEAN<span style='color:#7742df'>TTRO</span>.<br><span style='font-size:14px; color:#fff'>Intelligence Hub</span></h1>", unsafe_allow_html=True)
     st.divider()
@@ -353,24 +326,16 @@ with st.sidebar:
     else: st.error("🔴 Falta SERPER KEY")
 
     st.divider()
-    
-    st.markdown("### 🎯 Modo de Caça")
-    st.markdown("""
-    <div class="custom-info-box">
-        <b>Prioridade Leanttro:</b><br>
-        1. <b>Projetos Rápidos (🔥):</b> Catálogos e Logos Urgentes.<br>
-        2. <b>Projetos Maiores (⚠️):</b> Sistemas e E-commerces.
-    </div>
-    """, unsafe_allow_html=True)
+    tracking_info = get_tracking_data()
+    limite_atual = get_daily_limit(tracking_info["start_date"])
+    st.markdown("### 🎯 Sistema Antiban")
+    st.markdown(f"Limite de hoje: {limite_atual} mensagens.")
+    st.markdown("Envios a cada 6 minutos (Máx 10/hora).")
 
-# SISTEMA DE ABAS (TABS) PARA ORGANIZAR
-tab1, tab2, tab3 = st.tabs(["📡 RADAR DE OPORTUNIDADES (IA)", "⛏️ MINERADOR SNIPER (B2B + WHATSAPP)", "⚙️ CONTROLE E SEGURANÇA"])
+tab1, tab2, tab3 = st.tabs(["📡 RADAR DE OPORTUNIDADES (COMPRADORES)", "⛏️ MINERADOR ISOLADO (DADOS)", "⚙️ CONTROLE E SEGURANÇA"])
 
-# ==============================================================================
-# ABA 1: O SEU BUSCADOR ORIGINAL (IA + SERPER)
-# ==============================================================================
 with tab1:
-    st.markdown("<h2 style='color:white'>RADAR DE <span style='color:#7742df'>OPORTUNIDADES</span></h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:white'>RADAR DE <span style='color:#7742df'>OPORTUNIDADES REAIS</span></h2>", unsafe_allow_html=True)
 
     c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
 
@@ -378,29 +343,24 @@ with tab1:
         origem = st.selectbox("Onde buscar?", list(SUGESTOES_STRATEGICAS.keys()))
 
     with st.sidebar:
-        st.markdown("### 💡 Sugestões para esta Fonte")
+        st.markdown("### 💡 Buscas de Intenção")
         dicas_atuais = SUGESTOES_STRATEGICAS.get(origem, [])
         for dica in dicas_atuais:
             st.code(dica, language="text")
 
     with c2:
-        termo = st.text_input("Termo ou Nicho:", placeholder="Copie uma sugestão ao lado...")
+        termo = st.text_input("Intenção de busca:", placeholder="Ex: preciso de site")
     with c3:
-        tempo = st.selectbox("Período:", [
-            "Últimas 24 Horas",
-            "Última Semana",
-            "Último Mês",
-            "Qualquer data"
-        ])
+        tempo = st.selectbox("Período:", ["Últimas 24 Horas", "Última Semana", "Último Mês", "Qualquer data"])
     with c4:
-        qtd = st.number_input("Qtd", 1, 50, 8)
+        qtd = st.number_input("Qtd", 1, 50, 10)
 
     st.write("##")
-    btn = st.button("RASTREAR OPORTUNIDADES", key="btn_radar")
+    btn = st.button("RASTREAR COMPRADORES", key="btn_radar")
 
     if btn and termo:
         if not (GROQ_API_KEY and SERPER_API_KEY):
-            st.error("⚠️ Configure as chaves de API no Dokploy!")
+            st.error("Configure as chaves no Dokploy.")
         else:
             periodo_api = ""
             if "24 Horas" in tempo: periodo_api = "qdr:d"
@@ -408,40 +368,32 @@ with tab1:
             elif "Mês" in tempo: periodo_api = "qdr:m"
 
             query_final = termo
-            
-            if origem == "LinkedIn (Empresas)":
-                query_final = f'site:linkedin.com/company "{termo}"'
-            elif origem == "LinkedIn (Postagens/Feed)":
+            if origem == "LinkedIn (Postagens/Feed)":
                 query_final = f'site:linkedin.com/posts "{termo}"'
             elif origem == "Sites de Freelance (Workana/99)":
                 query_final = f'(site:workana.com OR site:99freelas.com.br) "{termo}"'
-            elif origem == "Instagram/Negócios (Estratégia Maps)":
-                query_final = f'site:instagram.com "{termo}"'
-
-            st.caption(f"🔎 Buscando: `{query_final}` | Fonte: `{origem}`")
+            elif origem == "Grupos Facebook / Web":
+                query_final = f'"{termo}"'
 
             resultados = search_google_serper(query_final, periodo_api, qtd)
             
             if not resultados:
-                st.warning("Nenhum sinal encontrado. Tente termos mais amplos.")
+                st.warning("Nenhum sinal de compra. Tente outro termo.")
             else:
                 bar_text = st.empty()
                 prog = st.progress(0)
-                
                 processed_results = []
                 data_export = [] 
                 
-                bar_text.text("🕵️ IA analisando leads em paralelo...")
+                bar_text.text("IA filtrando apenas quem quer comprar...")
                 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                     future_to_item = {executor.submit(process_single_item, item, st.session_state.system_prompt_padrao): item for item in resultados}
-                    
                     completed = 0
                     for future in concurrent.futures.as_completed(future_to_item):
                         try:
                             data = future.result()
                             processed_results.append(data)
-                            
                             analise_data = data['analise']
                             data_export.append({
                                 "Titulo": data['titulo'],
@@ -452,44 +404,32 @@ with tab1:
                                 "Produto": analise_data.get('produto_recomendado'),
                                 "Argumento": analise_data.get('argumento_venda')
                             })
-                            
-                        except Exception as exc:
-                            st.error(f"Erro no processamento: {exc}")
-                        
+                        except:
+                            pass
                         completed += 1
                         prog.progress(completed / len(resultados))
 
                 bar_text.empty() 
-
                 processed_results.sort(key=lambda x: x['analise'].get('score', 0), reverse=True)
                 
                 if data_export:
                     df_radar = pd.DataFrame(data_export)
-                    st.download_button(
-                        label="📥 BAIXAR RELATÓRIO DO RADAR (EXCEL)",
-                        data=to_excel(df_radar),
-                        file_name="radar_leanttro.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="dl_radar"
-                    )
+                    st.download_button(label="📥 BAIXAR RELATÓRIO DO RADAR", data=to_excel(df_radar), file_name="radar_leanttro.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
                 for p in processed_results:
                     analise = p['analise']
                     score = analise.get('score', 0)
+                    if score < 50:
+                        continue
+
                     autor = analise.get('autor', 'Desconhecido')
                     link = p['link']
                     titulo = p['titulo']
                     snippet = p['snippet']
                     data_pub = p['data_pub']
 
-                    css_class = "score-cold"
-                    icon = "❄️"
-                    if score >= 80:
-                        css_class = "score-hot"
-                        icon = "🔥 HOT"
-                    elif score >= 50:
-                        css_class = "score-warm"
-                        icon = "⚠️ MORNO"
+                    css_class = "score-hot" if score >= 80 else "score-warm"
+                    icon = "🔥 HOT" if score >= 80 else "⚠️ MORNO"
 
                     card_html = f"""
                     <div class="lead-card {css_class}">
@@ -500,12 +440,8 @@ with tab1:
                         </div>
                         <a href="{link}" target="_blank" style="background:#222; color:#fff; padding:5px 10px; text-decoration:none; border-radius:4px; font-size:12px;">VER POST 🔗</a>
                     </div>
-
-                    <div style="margin-top:10px;">
-                        <a href="{link}" target="_blank" class="lead-title">{titulo}</a>
-                    </div>
+                    <div style="margin-top:10px;"><a href="{link}" target="_blank" class="lead-title">{titulo}</a></div>
                     <div style="color:#666; font-size:11px; margin-bottom:5px;">🕒 {data_pub} | {snippet[:200]}...</div>
-
                     <div class="recommendation-box">
                         <div class="rec-title">// ESTRATÉGIA:</div>
                         <div style="color: #fff; font-weight:bold;">OFERTAR: {analise.get('produto_recomendado', 'N/A').upper()}</div>
@@ -516,241 +452,203 @@ with tab1:
                     """
                     st.markdown(card_html, unsafe_allow_html=True)
 
-# ==============================================================================
-# ABA 2: MINERADOR SNIPER (B2B + WHATSAPP) - ATUALIZADO
-# ==============================================================================
 with tab2:
-    st.markdown("<h2 style='color:white'>MINERADOR <span style='color:#7742df'>LOCAL (BAIRRO A BAIRRO)</span></h2>", unsafe_allow_html=True)
-    st.caption("Focado em extrair WHATSAPP e gerar VOLUME para disparo.")
+    st.markdown("<h2 style='color:white'>MINERADOR <span style='color:#7742df'>ISOLADO DE DADOS</span></h2>", unsafe_allow_html=True)
     
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns([2, 2, 2])
     with c1:
-        nicho = st.text_input("Nicho:", value="Advocacia Trabalhista")
+        nicho = st.text_input("Nicho:", value="Clínica Odontológica")
     with c2:
         cidade = st.text_input("Cidade Base:", value="São Paulo")
+    with c3:
+        fonte_alvo = st.selectbox("Fonte Específica:", list(FONTES_MINERADOR.keys()))
 
-    bairros_txt = st.text_area("Lista de Bairros (Cole aqui separados por vírgula):", 
-                               value="Centro, Pinheiros, Vila Madalena, Moema, Tatuapé, Mooca, Itaquera, Santana, Barra Funda, Lapa, Morumbi",
-                               height=100)
+    bairros_txt = st.text_area("Lista de Bairros (Separados por vírgula):", value="Centro, Pinheiros, Itaim Bibi", height=80)
     
-    if "leads_zap" not in st.session_state:
-        st.session_state["leads_zap"] = []
+    if "leads_isolados" not in st.session_state:
+        st.session_state["leads_isolados"] = []
 
     c_btn1, c_btn2 = st.columns([1, 1])
 
     with c_btn1:
-        if st.button("🚀 INICIAR VARREDURA POR ZONA", key="btn_zap_mine"):
-            if not SERPER_API_KEY:
-                st.error("Cadê a API Key do Serper, dev?")
-            else:
-                lista_bairros = [b.strip() for b in bairros_txt.split(',') if b.strip()]
-                novos_leads = []
-                
-                progress_text = st.empty()
-                bar = st.progress(0)
-                
-                for i, bairro in enumerate(lista_bairros):
-                    progress_text.text(f"📡 Escaneando bairro: {bairro.upper()}...")
-                    
-                    queries = [
-                        f'site:instagram.com "{nicho}" "{bairro}" "{cidade}" "whatsapp"',
-                        f'site:facebook.com "{nicho}" "{bairro}" "{cidade}" "fale conosco"',
-                        f'"{nicho}" "{bairro}" "{cidade}" "whatsapp: 55"' 
-                    ]
-                    
-                    for q in queries:
-                        resultados = search_google_serper(q, period="", num_results=20)
-                        
-                        for r in resultados:
-                            texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
-                            
-                            zap = extrair_whatsapp(texto_completo)
-                            email = extrair_email(texto_completo)
-                            
-                            if zap:
-                                exists_global = any(l['Whatsapp'] == zap for l in st.session_state["leads_zap"])
-                                exists_local = any(l['Whatsapp'] == zap for l in novos_leads)
-                                
-                                if not exists_global and not exists_local:
-                                    novos_leads.append({
-                                        "Empresa": limpar_nome_insta(r.get('title', '')),
-                                        "Nicho": nicho,
-                                        "Bairro": bairro,
-                                        "Whatsapp": zap,
-                                        "Email": email if email else "N/D",
-                                        "Link": r.get('link'),
-                                        "Snippet": r.get('snippet')[:100]
-                                    })
-                    
-                    bar.progress((i + 1) / len(lista_bairros))
-                    time.sleep(0.5) 
-                    
-                progress_text.text("✅ Varredura Concluída!")
-                
-                if novos_leads:
-                    st.session_state["leads_zap"].extend(novos_leads)
-                    st.success(f"🔥 {len(novos_leads)} NOVOS LEADS ENCONTRADOS!")
-                else:
-                    st.warning("Nada encontrado nestes bairros. Tente termos mais genéricos.")
+        if st.button("🚀 INICIAR EXTRAÇÃO", key="btn_zap_mine"):
+            lista_bairros = [b.strip() for b in bairros_txt.split(',') if b.strip()]
+            novos_leads = []
+            
+            progress_text = st.empty()
+            bar = st.progress(0)
+            
+            prefixo_fonte = FONTES_MINERADOR[fonte_alvo]
 
-    if st.session_state["leads_zap"]:
-        df = pd.DataFrame(st.session_state["leads_zap"])
+            for i, bairro in enumerate(lista_bairros):
+                progress_text.text(f"Escaneando {bairro.upper()} no {fonte_alvo}...")
+                
+                query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
+                queries = [
+                    f'{query_base} "whatsapp"',
+                    f'{query_base} "@gmail.com" OR "@hotmail.com"'
+                ]
+                
+                for q in queries:
+                    resultados = search_google_serper(q.strip(), period="", num_results=20)
+                    for r in resultados:
+                        texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
+                        zap = extrair_whatsapp(texto_completo)
+                        email = extrair_email(texto_completo)
+                        
+                        if zap or email:
+                            id_unico = zap if zap else email
+                            exists_global = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
+                            exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
+                            
+                            if not exists_global and not exists_local:
+                                novos_leads.append({
+                                    "Empresa": limpar_nome(r.get('title', '')),
+                                    "Nicho": nicho,
+                                    "Bairro": bairro,
+                                    "Whatsapp": zap if zap else "",
+                                    "Email": email if email else "",
+                                    "Fonte": fonte_alvo,
+                                    "Link": r.get('link')
+                                })
+                
+                bar.progress((i + 1) / len(lista_bairros))
+                time.sleep(0.5) 
+                
+            progress_text.text("Extração finalizada.")
+            if novos_leads:
+                st.session_state["leads_isolados"].extend(novos_leads)
+                st.success(f"{len(novos_leads)} CONTATOS ENCONTRADOS!")
+            else:
+                st.warning("Nada encontrado. Mude o nicho ou a fonte.")
+
+    if st.session_state["leads_isolados"]:
+        df = pd.DataFrame(st.session_state["leads_isolados"])
         st.write("---")
-        st.markdown(f"### 📋 LISTA DE ATAQUE: {len(df)} LEADS")
+        st.markdown(f"### 📋 BASE DE DADOS: {len(df)} REGISTROS")
         st.dataframe(df, width='stretch') 
         
         c_down, c_fire = st.columns(2)
-        
         with c_down:
-            st.download_button("📥 BAIXAR BASE (EXCEL)", data=to_excel(df), file_name="leads_zap_bairros.xlsx")
+            st.download_button("📥 BAIXAR BASE", data=to_excel(df), file_name="base_minerada.xlsx")
 
         with c_fire:
-            if st.button("🔥 DISPARAR CAMPANHA (VIA IP EXTERNO)"):
-                if len(df) == 0:
-                    st.warning("Nenhum lead para disparar.")
+            if st.button("🔥 DISPARAR PARA NÚMEROS EXTRAÍDOS"):
+                df_zap = df[df['Whatsapp'] != ""]
+                if len(df_zap) == 0:
+                    st.warning("Nenhum contato com WhatsApp nesta lista.")
                 else:
-                    st.info("Iniciando disparos para o servidor central...")
                     sucessos = 0
                     erros = 0
                     duplicates = 0
                     limit_break = False
-                    
                     msg_bar = st.progress(0)
                     
-                    for idx, row in df.iterrows():
-                        msg_bar.progress((idx + 1) / len(df))
+                    tracking = get_tracking_data()
+                    today_str = str(datetime.date.today())
+                    current_hour_str = str(datetime.datetime.now().strftime("%Y-%m-%d %H"))
+                    
+                    if tracking["last_run_date"] != today_str:
+                        tracking["sent_today"] = 0
+                        tracking["last_run_date"] = today_str
                         
-                        if st.session_state.sent_count >= st.session_state.daily_limit:
-                            st.warning(f"Limite diário de {st.session_state.daily_limit} envios atingido. Disparo interrompido.")
+                    if tracking["last_run_hour"] != current_hour_str:
+                        tracking["sent_this_hour"] = 0
+                        tracking["last_run_hour"] = current_hour_str
+                        
+                    daily_limit = get_daily_limit(tracking["start_date"])
+                    
+                    for idx, row in df_zap.iterrows():
+                        msg_bar.progress((idx + 1) / len(df_zap))
+                        
+                        if tracking["sent_today"] >= daily_limit:
+                            st.warning(f"Limite diário de {daily_limit} atingido.")
+                            limit_break = True
+                            break
+                            
+                        if tracking["sent_this_hour"] >= 10:
+                            st.warning("Limite de 10 por hora atingido. Aguarde a virada de hora.")
                             limit_break = True
                             break
                         
                         numero = row['Whatsapp']
-                        
                         if numero in st.session_state.blacklist:
                             duplicates += 1
                             continue
                         
                         try:
                             saudacao_escolhida = random.choice(st.session_state.saudacoes) if st.session_state.saudacoes else "Opa"
-                            
                             mensagem_com_saudacao = st.session_state.mensagem_padrao.replace("{saudacao}", saudacao_escolhida)
-                            
                             primeiro_nome = row['Empresa'].split(' ')[0]
                             mensagem_fria = mensagem_com_saudacao.format(primeiro_nome=primeiro_nome, bairro=row['Bairro'])
                             
-                            payload = {
-                                "number": numero, 
-                                "message": mensagem_fria
-                            }
-                            
+                            payload = {"number": numero, "message": mensagem_fria}
                             res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
                             
                             if res.status_code == 200:
                                 sucessos += 1
-                                st.session_state.sent_count += 1
+                                tracking["sent_today"] += 1
+                                tracking["sent_this_hour"] += 1
                                 st.session_state.blacklist.add(numero)
+                                save_tracking_data(tracking)
                             else:
                                 erros += 1
-                                
-                        except Exception as e:
-                            print(f"Erro ao enviar para {numero}: {e}")
+                        except:
                             erros += 1
                         
-                        delay = random.randint(st.session_state.delay_min, st.session_state.delay_max)
+                        delay = random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max))
                         time.sleep(delay)
                     
                     if limit_break:
-                        st.warning(f"✅ Enviados: {sucessos} | ❌ Falhas: {erros} | ⏭️ Duplicados ignorados: {duplicates} | 🛑 Parou por limite.")
+                        st.warning(f"Travado pelo limite de segurança. Enviados agora: {sucessos} | Total do dia: {tracking['sent_today']}")
                     else:
-                        st.success(f"Fim do disparo! ✅ Enviados: {sucessos} | ❌ Falhas: {erros} | ⏭️ Duplicados ignorados: {duplicates}")
+                        st.success(f"Finalizado. Enviados agora: {sucessos} | Total do dia: {tracking['sent_today']} | Falhas: {erros} | Duplicados: {duplicates}")
 
-# ==============================================================================
-# ABA 3: CONTROLE E SEGURANÇA
-# ==============================================================================
 with tab3:
     st.markdown("<h2 style='color:white'>⚙️ CONTROLE E <span style='color:#7742df'>SEGURANÇA</span></h2>", unsafe_allow_html=True)
     
-    st.markdown("### ✍️ Mensagem de Disparo (fria)")
-    st.caption("Use as variáveis `{primeiro_nome}`, `{bairro}` e opcionalmente `{saudacao}` (será substituída por uma saudação aleatória).")
-    nova_mensagem = st.text_area(
-        "Edite a mensagem que será enviada no disparo:",
-        value=st.session_state.mensagem_padrao,
-        height=150,
-        key="input_mensagem"
-    )
+    st.markdown("### ✍️ Mensagem Fria")
+    nova_mensagem = st.text_area("Edite a mensagem:", value=st.session_state.mensagem_padrao, height=100)
     if nova_mensagem != st.session_state.mensagem_padrao:
         st.session_state.mensagem_padrao = nova_mensagem
-        st.success("Mensagem atualizada!")
-    
-    st.divider()
-    
-    st.markdown("### 🧠 System Prompt da IA (treinamento)")
-    st.caption("Este prompt ensina a IA a analisar os leads. Altere à vontade.")
-    novo_prompt = st.text_area(
-        "Edite o system prompt:",
-        value=st.session_state.system_prompt_padrao,
-        height=400,
-        key="input_prompt"
-    )
-    if novo_prompt != st.session_state.system_prompt_padrao:
-        st.session_state.system_prompt_padrao = novo_prompt
-        st.success("System prompt atualizado!")
     
     st.divider()
     
     st.markdown("### 🗣️ Variações de Saudação")
-    st.caption("Lista de saudações separadas por vírgula. Ex: Opa, Olá, Tudo bem, Oi")
-    saudacoes_input = st.text_input(
-        "Saudações:",
-        value=", ".join(st.session_state.saudacoes),
-        key="input_saudacoes"
-    )
+    saudacoes_input = st.text_input("Lista separada por vírgula:", value=", ".join(st.session_state.saudacoes))
     if saudacoes_input:
         nova_lista = [s.strip() for s in saudacoes_input.split(",") if s.strip()]
         if nova_lista and nova_lista != st.session_state.saudacoes:
             st.session_state.saudacoes = nova_lista
-            st.success("Saudações atualizadas!")
     
     st.divider()
     
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("### ⏱️ Delay entre disparos (segundos)")
-        min_delay = st.number_input("Delay mínimo:", min_value=1, max_value=60, value=st.session_state.delay_min, key="min_delay")
+        st.markdown("### ⏱️ Delay (Proteção Extrema)")
+        min_delay = st.number_input("Mínimo (Travado em 300s / 5min):", min_value=300, max_value=600, value=max(300, st.session_state.delay_min))
         if min_delay != st.session_state.delay_min:
             st.session_state.delay_min = min_delay
     with col2:
-        max_delay = st.number_input("Delay máximo:", min_value=1, max_value=120, value=st.session_state.delay_max, key="max_delay")
+        max_delay = st.number_input("Máximo:", min_value=350, max_value=800, value=max(350, st.session_state.delay_max))
         if max_delay != st.session_state.delay_max:
             st.session_state.delay_max = max_delay
-    if st.session_state.delay_min > st.session_state.delay_max:
-        st.error("O delay mínimo não pode ser maior que o máximo.")
     
     st.divider()
     
-    st.markdown("### 🔒 Limite Diário e Estatísticas")
+    st.markdown("### 🔒 Progresso de Envios")
+    tracking = get_tracking_data()
+    daily_lim = get_daily_limit(tracking["start_date"])
+    
     col_a, col_b, col_c = st.columns(3)
     with col_a:
-        novo_limite = st.number_input("Limite máximo por sessão:", min_value=1, value=st.session_state.daily_limit, key="daily_limit_input")
-        if novo_limite != st.session_state.daily_limit:
-            st.session_state.daily_limit = novo_limite
+        st.metric("Limite de hoje", daily_lim)
     with col_b:
-        st.metric("Envios realizados nesta sessão", st.session_state.sent_count)
+        st.metric("Enviados hoje", tracking["sent_today"])
     with col_c:
-        st.metric("Números únicos já enviados", len(st.session_state.blacklist))
+        st.metric("Enviados nesta hora", f"{tracking['sent_this_hour']} / 10")
     
-    if st.button("🔄 Resetar contadores e blacklist"):
-        st.session_state.sent_count = 0
+    if st.button("🔄 Zerar dados (Perigo)"):
+        os.remove(TRACKING_FILE)
         st.session_state.blacklist = set()
-        st.success("Contadores e blacklist zerados!")
         st.rerun()
-    
-    st.divider()
-    st.markdown("### 💡 Dicas de Segurança")
-    st.info(
-        "- Use delays aleatórios para simular comportamento humano.\n"
-        "- O limite diário evita que você seja bloqueado pelo WhatsApp.\n"
-        "- A blacklist impede o reenvio para o mesmo número na mesma sessão.\n"
-        "- A saudação variável torna as mensagens menos padronizadas."
-    )
