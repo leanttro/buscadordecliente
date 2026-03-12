@@ -296,6 +296,10 @@ def enviar_email_smtp(smtp_config, to, subject, body, anexo=None, tracking_url=N
     try:
         to = str(to).strip()
         subject = str(subject).strip()
+        
+        # Converte quebras de linha padrão do texto para HTML
+        body = str(body).replace('\n', '<br>')
+        
         if tracking_url:
             cache_buster = random.randint(1000, 999999)
             url_final = f"{tracking_url}&r={cache_buster}"
@@ -811,12 +815,15 @@ with tab4:
                         if not email_real or "@" not in email_real or email_real.lower() == 'nan':
                             log.warning(f"Sem email valido para {label_sel}")
                             continue
-                        log_id = registrar_log_envio(token, email_real, assunto, "Enviando")
+                            
+                        assunto_final = assunto.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())    
+                        
+                        log_id = registrar_log_envio(token, email_real, assunto_final, "Enviando")
                         url_pixel = f"{DIRECTUS_URL.rstrip('/')}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}" if log_id else None
                         
                         texto_final = corpo.replace("{nome}", str(tgt.get('nome', '')).strip()).replace("{empresa}", str(tgt.get('empresa', '')).strip())
                         
-                        res, txt = enviar_email_smtp(st.session_state['smtp'], email_real, assunto, texto_final, file_anexo, url_pixel)
+                        res, txt = enviar_email_smtp(st.session_state['smtp'], email_real, assunto_final, texto_final, file_anexo, url_pixel)
                         if log_id: atualizar_status_envio(token, log_id, "Enviado" if res else f"Erro {txt}")
                         if res and tgt.get('id'): atualizar_item(token, user_id, tgt['id'], {"status": "ENVIADO EM MASSA"})
                         
@@ -924,7 +931,7 @@ with tab4:
                 if metodo_envio_ext == "Email SMTP":
                     assunto_ext = st.text_input("ASSUNTO", key="ass_ext")
                     st.caption("Dica: Use {{imagem}} no texto para inserir a imagem no corpo.")
-                    corpo_ext = st.text_area("CORPO HTML (Use {nome})", height=150, key="body_ext")
+                    corpo_ext = st.text_area("CORPO HTML (Use {nome}, {empresa})", height=150, key="body_ext")
                     file_anexo_ext = st.file_uploader("ANEXAR ARQUIVO (IMG vira inline, PDF vira anexo)", key="file_ext_up_email")
                     
                     if st.button("✨ GERAR COM IA (GROQ) - EXT"):
@@ -952,17 +959,20 @@ with tab4:
                                 
                                 nome_l = row.get('nome', 'Parceiro')
                                 email_l = str(row['email']).strip()
+                                empresa_l = row.get('empresa', '') if 'empresa' in row else ''
                                 
-                                log_id = registrar_log_envio(token, email_l, assunto_ext, "Enviando... [EXT]")
+                                assunto_final_ext = assunto_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
+                                
+                                log_id = registrar_log_envio(token, email_l, assunto_final_ext, "Enviando... [EXT]")
                                 
                                 tracking_url = None
                                 if log_id and TRACKING_WEBHOOK_KEY != "SUA_CHAVE_AQUI":
                                     base_clean = DIRECTUS_URL.rstrip('/')
                                     tracking_url = f"{base_clean}/flows/trigger/{TRACKING_WEBHOOK_KEY}?log_id={log_id}"
 
-                                msg_final = corpo_ext.replace("{nome}", str(nome_l))
+                                msg_final = corpo_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
                                 
-                                res, txt = enviar_email_smtp(st.session_state['smtp'], email_l, assunto_ext, msg_final, file_anexo_ext, tracking_url)
+                                res, txt = enviar_email_smtp(st.session_state['smtp'], email_l, assunto_final_ext, msg_final, file_anexo_ext, tracking_url)
                                 
                                 if log_id:
                                     novo_status = "Enviado [EXT]" if res else f"Erro: {txt}"
@@ -977,7 +987,7 @@ with tab4:
                             st.rerun()
                             
                 else: 
-                    msg_wpp_ext = st.text_area("MENSAGEM WHATSAPP (Use {nome})", value="Opa {nome} tudo bem", height=150, key="wpp_ext")
+                    msg_wpp_ext = st.text_area("MENSAGEM WHATSAPP (Use {nome}, {empresa})", value="Opa {nome} tudo bem", height=150, key="wpp_ext")
                     file_anexo_wpp_ext = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_ext_up")
                     tracking = get_tracking_data(user_id)
                     st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
@@ -1005,13 +1015,14 @@ with tab4:
                                 if tracking["sent_this_hour"] >= 10: st.warning("Limite de hora atingido"); break
                                 
                                 nome_l = row.get('nome', 'Parceiro')
+                                empresa_l = row.get('empresa', '') if 'empresa' in row else ''
                                 numero = extrair_whatsapp(str(row[col_tel]))
                                 
                                 if not numero or numero.lower() == 'nan':
                                     continue
                                     
                                 try:
-                                    msg_final_wpp = msg_wpp_ext.replace("{nome}", str(nome_l))
+                                    msg_final_wpp = msg_wpp_ext.replace("{nome}", str(nome_l)).replace("{empresa}", str(empresa_l))
                                     payload = {"number": numero, "message": msg_final_wpp}
                                     
                                     if file_anexo_wpp_ext is not None:
