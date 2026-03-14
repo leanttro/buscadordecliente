@@ -398,6 +398,16 @@ def search_google_serper(query, period, num_results=10):
         return response.json().get("organic", [])
     except: return []
 
+def search_google_maps_serper(query):
+    url = "https://google.serper.dev/places"
+    payload_dict = {"q": query, "gl": "br", "hl": "pt-br"}
+    headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+    try:
+        response = requests.request("POST", url, headers=headers, data=json.dumps(payload_dict))
+        if response.status_code != 200: return []
+        return response.json().get("places", [])
+    except: return []
+
 def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
     if not groq_key: return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     try:
@@ -441,7 +451,13 @@ SUGESTOES_STRATEGICAS = {
     "LinkedIn": ["alguém recomenda empresa para site", "busco profissional automação", "indicação criador de catálogo", "preciso integrar IA no meu negócio"],
     "Grupos Facebook Web": ["preciso de um site", "alguém faz catálogo digital", "procuro quem faça automação", "orçamento para site"]
 }
-FONTES_MINERADOR = {"Instagram": "site:instagram.com", "Facebook": "site:facebook.com", "LinkedIn": "site:linkedin.com/company", "Geral": ""}
+FONTES_MINERADOR = {
+    "Google Maps": "maps",
+    "Instagram": "site:instagram.com", 
+    "Facebook": "site:facebook.com", 
+    "LinkedIn": "site:linkedin.com/company", 
+    "Geral": ""
+}
 
 if 'token' not in st.session_state:
     token_url = st.query_params.get("token")
@@ -597,20 +613,46 @@ try:
             emails_db = df['email'].dropna().astype(str).tolist() if not df.empty and 'email' in df.columns else []
             
             for i, bairro in enumerate(lista_bairros):
-                query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
-                for q in [f'{query_base} "whatsapp"', f'{query_base} "@gmail.com" OR "@hotmail.com"']:
-                    resultados = search_google_serper(q.strip(), period="", num_results=20)
-                    for r in resultados:
-                        texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
-                        zap = extrair_whatsapp(texto_completo)
-                        email = extrair_email(texto_completo)
-                        if zap or email:
-                            exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
-                            exists_new = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
-                            exists_db = (zap and zap in telefones_db) or (email and email in emails_db)
+                if fonte_alvo == "Google Maps":
+                    query_maps = f'{nicho} em {bairro} {cidade}'
+                    resultados_maps = search_google_maps_serper(query_maps)
+                    
+                    for r in resultados_maps:
+                        nome_empresa = r.get('title', '')
+                        zap_oficial = extrair_whatsapp(r.get('phoneNumber', ''))
+                        endereco = r.get('address', '')
+                        site = r.get('website', '')
+                        
+                        if zap_oficial:
+                            exists_local = any(l['Whatsapp'] == zap_oficial for l in st.session_state["leads_isolados"])
+                            exists_new = any(l['Whatsapp'] == zap_oficial for l in novos_leads)
+                            exists_db = zap_oficial in telefones_db
                             
                             if not exists_local and not exists_new and not exists_db:
-                                novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Whatsapp": zap if zap else "", "Email": email if email else "", "Fonte": fonte_alvo, "Link": r.get('link')})
+                                novos_leads.append({
+                                    "Empresa": limpar_nome(nome_empresa), 
+                                    "Nicho": nicho, 
+                                    "Bairro": bairro, 
+                                    "Whatsapp": zap_oficial, 
+                                    "Email": "", 
+                                    "Fonte": "Google Maps", 
+                                    "Link": site
+                                })
+                else:
+                    query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
+                    for q in [f'{query_base} "whatsapp"', f'{query_base} "@gmail.com" OR "@hotmail.com"']:
+                        resultados = search_google_serper(q.strip(), period="", num_results=20)
+                        for r in resultados:
+                            texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
+                            zap = extrair_whatsapp(texto_completo)
+                            email = extrair_email(texto_completo)
+                            if zap or email:
+                                exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
+                                exists_new = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
+                                exists_db = (zap and zap in telefones_db) or (email and email in emails_db)
+                                
+                                if not exists_local and not exists_new and not exists_db:
+                                    novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Whatsapp": zap if zap else "", "Email": email if email else "", "Fonte": fonte_alvo, "Link": r.get('link')})
                 bar.progress((i + 1) / len(lista_bairros))
                 time.sleep(0.5) 
             if novos_leads:
