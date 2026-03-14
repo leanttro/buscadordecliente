@@ -858,6 +858,7 @@ try:
                 else:
                     msg_wpp_massa = st.text_area("MENSAGEM WHATSAPP (Use {nome}, {empresa})", value="Opa {nome} tudo bem", height=150)
                     file_anexo_wpp = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_int")
+                    url_video_wpp = st.text_input("URL DO VÍDEO (Cloudinary ou MP4 direto)", key="vid_wpp_int")
                     st.info("O envio usa as travas de proteção da aba Configuração")
                     tracking = get_tracking_data(user_id)
                     st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
@@ -924,6 +925,9 @@ try:
                             if file_anexo_wpp is not None:
                                 img_base64 = base64.b64encode(file_anexo_wpp.getvalue()).decode('utf-8')
                                 payload["image"] = img_base64
+                                
+                            if url_video_wpp:
+                                payload["videoUrl"] = url_video_wpp
                                 
                             res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
                             if res.status_code == 200:
@@ -1051,6 +1055,7 @@ try:
                     else: 
                         msg_wpp_ext = st.text_area("MENSAGEM WHATSAPP (Use {nome}, {empresa})", value="Opa {nome} tudo bem", height=150, key="wpp_ext")
                         file_anexo_wpp_ext = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_ext_up")
+                        url_video_ext = st.text_input("URL DO VÍDEO (Cloudinary ou MP4 direto)", key="vid_wpp_ext")
                         tracking = get_tracking_data(user_id)
                         st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
                         
@@ -1090,6 +1095,9 @@ try:
                                         if file_anexo_wpp_ext is not None:
                                             img_base64 = base64.b64encode(file_anexo_wpp_ext.getvalue()).decode('utf-8')
                                             payload["image"] = img_base64
+                                            
+                                        if url_video_ext:
+                                            payload["videoUrl"] = url_video_ext
                                             
                                         res = requests.post("http://213.199.56.207:3001/disparar", json=payload, timeout=20)
                                         
