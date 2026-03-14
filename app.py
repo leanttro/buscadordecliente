@@ -408,23 +408,6 @@ def search_google_maps_serper(query):
         return response.json().get("places", [])
     except: return []
 
-def buscar_email_por_site(site):
-    if not site: return ""
-    try:
-        domain = urllib.parse.urlparse(site).netloc
-        if domain.startswith('www.'):
-            domain = domain[4:]
-        if not domain: return ""
-        query = f'site:{domain} @'
-        resultados = search_google_serper(query, "", num_results=5)
-        for r in resultados:
-            texto = (r.get('title', '') + ' ' + r.get('snippet', '')).lower()
-            email = extrair_email(texto)
-            if email: return email
-    except:
-        pass
-    return ""
-
 def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
     if not groq_key: return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
     try:
@@ -640,26 +623,18 @@ try:
                         endereco = r.get('address', '')
                         site = r.get('website', '')
                         
-                        email_encontrado = ""
-                        if site:
-                            email_encontrado = buscar_email_por_site(site)
-                            
-                        if zap_oficial is None: zap_oficial = ""
-                        if email_encontrado is None: email_encontrado = ""
-                        
-                        if zap_oficial or email_encontrado:
-                            exists_local = any((l['Whatsapp'] == zap_oficial and zap_oficial) or (l['Email'] == email_encontrado and email_encontrado) for l in st.session_state["leads_isolados"])
-                            exists_new = any((l['Whatsapp'] == zap_oficial and zap_oficial) or (l['Email'] == email_encontrado and email_encontrado) for l in novos_leads)
-                            exists_db = (zap_oficial and zap_oficial in telefones_db) or (email_encontrado and email_encontrado in emails_db)
+                        if zap_oficial:
+                            exists_local = any(l['Whatsapp'] == zap_oficial for l in st.session_state["leads_isolados"])
+                            exists_new = any(l['Whatsapp'] == zap_oficial for l in novos_leads)
+                            exists_db = zap_oficial in telefones_db
                             
                             if not exists_local and not exists_new and not exists_db:
                                 novos_leads.append({
                                     "Empresa": limpar_nome(nome_empresa), 
                                     "Nicho": nicho, 
                                     "Bairro": bairro, 
-                                    "Endereço Real": endereco,
                                     "Whatsapp": zap_oficial, 
-                                    "Email": email_encontrado, 
+                                    "Email": "", 
                                     "Fonte": "Google Maps", 
                                     "Link": site
                                 })
@@ -671,17 +646,13 @@ try:
                             texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
                             zap = extrair_whatsapp(texto_completo)
                             email = extrair_email(texto_completo)
-                            
-                            if zap is None: zap = ""
-                            if email is None: email = ""
-                            
                             if zap or email:
                                 exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
                                 exists_new = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
                                 exists_db = (zap and zap in telefones_db) or (email and email in emails_db)
                                 
                                 if not exists_local and not exists_new and not exists_db:
-                                    novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Endereço Real": "N/A", "Whatsapp": zap, "Email": email, "Fonte": fonte_alvo, "Link": r.get('link')})
+                                    novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Whatsapp": zap if zap else "", "Email": email if email else "", "Fonte": fonte_alvo, "Link": r.get('link')})
                 bar.progress((i + 1) / len(lista_bairros))
                 time.sleep(0.5) 
             if novos_leads:
@@ -708,9 +679,8 @@ try:
                     if is_dup_zap or is_dup_email:
                         duplicados += 1
                         continue
-                    
-                    obs_text = f"Endereço: {row.get('Endereço Real', '')}" if row.get('Endereço Real') and row.get('Endereço Real') != "N/A" else ""    
-                    salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"], "obs": obs_text})
+                        
+                    salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"]})
                     salvos += 1
                     if zap_row: telefones_db.append(zap_row)
                     if email_row: emails_db.append(email_row)
