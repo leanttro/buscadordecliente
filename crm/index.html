@@ -156,11 +156,11 @@
         .item-detail { color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
         .item-actions { display: flex; gap: 10px; margin-left: 15px; }
 
-        /* Nova Tabela de CRM */
+        /* Nova Tabela de CRM e Controles */
         .crm-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         .crm-table th, .crm-table td { padding: 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); font-size: 0.9rem; }
         .crm-table th { background: rgba(124, 58, 237, 0.1); color: var(--color-primary); font-family: 'Archivo Black', sans-serif; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
-        .crm-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .crm-table tr:hover td { background: rgba(255,255,255,0.05); }
         .crm-status { padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; display: inline-block; text-align: center; }
         .status-novo { background: rgba(0, 229, 255, 0.1); color: var(--color-secondary); border: 1px solid var(--color-secondary); }
         .status-quente { background: rgba(255, 152, 0, 0.1); color: #ff9800; border: 1px solid #ff9800; }
@@ -170,6 +170,7 @@
         .crm-input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(124, 58, 237, 0.5); color: white; padding: 8px; border-radius: 6px; font-size: 0.85rem; font-family: 'Inter', sans-serif; transition: all 0.3s; margin-bottom: 5px; }
         .crm-input:focus { outline: none; border-color: var(--color-secondary); box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
         .crm-select { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(124, 58, 237, 0.5); color: white; padding: 8px; border-radius: 6px; font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+        .mass-check-item { transform: scale(1.2); cursor: pointer; accent-color: var(--color-primary); }
 
         .collapsible-header { background: rgba(255,255,255,0.05); color: var(--color-text-light); padding: 15px 20px; border-radius: 12px; cursor: pointer; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; transition: background 0.3s ease; border: 1px solid rgba(255,255,255,0.1); }
         .collapsible-header:hover { background: rgba(124, 58, 237, 0.2); border-color: var(--color-primary); }
@@ -192,7 +193,7 @@
 
         .empty-state { text-align: center; color: rgba(255,255,255,0.3); padding: 60px; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px; }
 
-        .message-box { background: rgba(124, 58, 237, 0.9); backdrop-filter: blur(10px); color: white; padding: 15px 20px; border-radius: 8px; margin: 15px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; display: none; border: 1px solid rgba(255,255,255,0.2); }
+        .message-box { background: rgba(124, 58, 237, 0.9); backdrop-filter: blur(10px); color: white; padding: 15px 20px; border-radius: 8px; margin: 15px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; display: none; border: 1px solid rgba(255,255,255,0.2); position:fixed; top:20px; right:20px; z-index:99999; }
         .message-box.success { background: rgba(0, 229, 255, 0.2); border-color: var(--color-secondary); color: var(--color-secondary); }
         .message-box.error { background: rgba(211, 47, 47, 0.2); border-color: #ff5252; color: #ff5252; }
 
@@ -633,11 +634,27 @@
                                     <input type="tel" id="clienteTelefone" placeholder="5511999999999">
                                 </div>
                             </div>
-                            <div class="form-group" style="flex: 1; min-width: 200px;">
+                            <div class="form-group" style="flex: 1; min-width: 150px;">
                                 <label for="clienteOrigem">Origem</label>
                                 <div class="input-with-icon">
                                     <span class="input-icon">📍</span>
-                                    <input type="text" id="clienteOrigem" placeholder="Ex: Radar, Instagram">
+                                    <input type="text" id="clienteOrigem" placeholder="Ex: Radar">
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="form-group" style="flex: 1; min-width: 200px;">
+                                <label for="clienteUrl">URL/Site</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">🔗</span>
+                                    <input type="text" id="clienteUrl" placeholder="https://...">
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex: 2; min-width: 300px;">
+                                <label for="clienteObs">Observações</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">📝</span>
+                                    <input type="text" id="clienteObs" placeholder="Detalhes do lead...">
                                 </div>
                             </div>
                         </div>
@@ -646,7 +663,37 @@
                 </div>
 
                 <div class="form-section" style="margin-top: 25px;">
-                    <h3>Tabela de Diretório</h3>
+                    <h3>Tabela de Diretório Avançada</h3>
+                    
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div class="input-with-icon" style="flex: 2; min-width: 200px;">
+                            <span class="input-icon">🔍</span>
+                            <input type="text" id="crmSearch" class="crm-input" style="margin:0; padding-left:45px;" placeholder="Buscar Nome, Empresa, E-mail ou Telefone..." onkeyup="renderizarClientes()">
+                        </div>
+                        <select id="crmFilterStatus" class="crm-select" style="flex: 1; min-width: 150px; margin:0;" onchange="renderizarClientes()">
+                            <option value="">Todos os Status</option>
+                            <option value="Novo">Novo</option>
+                            <option value="Quente">Quente</option>
+                            <option value="Cliente">Cliente</option>
+                            <option value="ENVIADO EM MASSA">Massa</option>
+                        </select>
+                        <select id="crmFilterOrigem" class="crm-select" style="flex: 1; min-width: 150px; margin:0;" onchange="renderizarClientes()">
+                            <option value="">Todas as Origens</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; padding: 15px; background: rgba(124, 58, 237, 0.05); border-radius: 12px; border: 1px solid rgba(124, 58, 237, 0.2); align-items: center; flex-wrap: wrap;">
+                        <span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; text-transform:uppercase;">Ação em Massa:</span>
+                        <select id="massActionStatus" class="crm-select" style="max-width: 250px; margin:0;">
+                            <option value="">Alterar Status para...</option>
+                            <option value="Novo">Novo</option>
+                            <option value="Quente">Quente</option>
+                            <option value="Cliente">Cliente</option>
+                            <option value="ENVIADO EM MASSA">Massa</option>
+                        </select>
+                        <button class="btn" style="padding: 8px 20px; font-size: 0.85rem; margin:0;" onclick="aplicarAcaoEmMassa()">Aplicar</button>
+                    </div>
+
                     <div id="lista-clientes">
                         <p class="empty-state">Diretório vazio.</p>
                     </div>
@@ -823,8 +870,27 @@
 
     </div>
 
+    <div id="contactModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(5px);">
+        <div class="card" style="max-width:600px; width:90%; position:relative; background: var(--color-background-light); border-top: 4px solid var(--color-primary);">
+            <button onclick="document.getElementById('contactModal').style.display='none'" style="position:absolute; top:15px; right:20px; background:none; border:none; color:white; font-size:2rem; cursor:pointer; opacity:0.7;">&times;</button>
+            <h2 style="font-size: 1.5rem; color: var(--color-secondary); margin-bottom: 15px;">💬 Central de Disparo Direto</h2>
+            <div id="contactModalInfo" style="margin-bottom:20px; color:rgba(255,255,255,0.8); font-size:0.9rem; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;"></div>
+            
+            <div class="form-group">
+                <label style="color: var(--color-primary);">Template de Mensagem (Auto-salvo)</label>
+                <p style="font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-bottom: 5px;">Variáveis dinâmicas permitidas: <b>{nome}</b> e <b>{empresa}</b></p>
+                <textarea id="contactMessageTemplate" rows="6" class="crm-input" onkeyup="saveMessageTemplate()" placeholder="Olá {nome}, vi que você é da {empresa}..."></textarea>
+            </div>
+            
+            <div style="display:flex; gap:10px; flex-wrap: wrap;">
+                <button class="btn" style="flex:1; background:#25D366; color:white; justify-content: center; box-shadow: 0 10px 20px rgba(37, 211, 102, 0.3);" onclick="enviarWhatsappModal()">📱 Abrir WhatsApp</button>
+                <button class="btn" style="flex:1; background:#EA4335; color:white; justify-content: center; box-shadow: 0 10px 20px rgba(234, 67, 53, 0.3);" onclick="enviarEmailModal()">📧 Abrir E-mail</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const DIRECTUS_URL = "https://api.leanttro.com"; // AJUSTE SE NECESSÁRIO
+        const DIRECTUS_URL = "https://api.leanttro.com"; 
         let authToken = null;
         let configRowId = null;
 
@@ -837,10 +903,10 @@
         let memoryData = {};
         let currentUser = null; 
         let salesChart = null; 
+        let currentContactId = null; // Usado pelo modal de contato
 
-        // Função crucial para pegar o nome da tabela baseada na conta real do Python
         function getUserCrmTable() {
-            if (!currentUser || !currentUser.id) return 'mt_clientes'; // fallback
+            if (!currentUser || !currentUser.id) return 'mt_clientes'; 
             return 'crm_' + currentUser.id.replace(/-/g, '_');
         }
 
@@ -851,11 +917,16 @@
             if (body) options.body = JSON.stringify(body);
             try {
                 const res = await fetch(`${DIRECTUS_URL}${endpoint}`, options);
+                if (res.status === 401) {
+                    logoutUser();
+                    throw new Error("Token expirado. Faça login novamente.");
+                }
                 if (!res.ok) throw new Error(await res.text());
                 if (method !== 'DELETE') return await res.json();
                 return true;
             } catch (e) {
                 console.error('API Error:', e);
+                if (e.message.includes('Token expirado')) showMessage("Sessão expirada. Faça login de novo.", "error");
                 return null;
             }
         }
@@ -972,6 +1043,15 @@
             }
         }
 
+        function atualizarFiltroOrigem() {
+            const filter = document.getElementById('crmFilterOrigem');
+            if (!filter) return;
+            const currentVal = filter.value;
+            const origens = [...new Set(clientes.map(c => c.origem).filter(o => o && o.trim() !== ''))];
+            filter.innerHTML = '<option value="">Todas as Origens</option>' + origens.map(o => `<option value="${o}">${o}</option>`).join('');
+            filter.value = currentVal;
+        }
+
         async function loadUserData() {
             if (!currentUser) return;
             document.getElementById('userNameDisplay').textContent = currentUser.name;
@@ -996,14 +1076,13 @@
             estoque = {};
             (prodRes?.data || []).forEach(p => { estoque[p.id] = p.estoque_atual || 0; });
 
-            // Carregamento dinâmico da tabela do Python
             const crmTable = getUserCrmTable();
             const cliRes = await apiFetch(`/items/${crmTable}?limit=-1`);
             
-            // Se a tabela existe, processa. Se não, array vazio.
             clientes = (cliRes?.data || []).map(c => ({
-                id: c.id, nome: c.nome, empresa: c.empresa, email: c.email, telefone: c.telefone, origem: c.origem, status: c.status || 'Novo'
+                id: c.id, nome: c.nome, empresa: c.empresa, email: c.email, telefone: c.telefone, origem: c.origem, url: c.url, obs: c.obs, status: c.status || 'Novo'
             }));
+            atualizarFiltroOrigem();
 
             const vendRes = await apiFetch('/items/mt_vendas');
             vendas = (vendRes?.data || []).map(v => ({
@@ -1475,7 +1554,7 @@
         function cancelEditProduto(id) { renderizarProdutos(); }
 
         // ==========================================
-        // INTEGRAÇÃO DE LEADS NO CRM DINÂMICO
+        // INTEGRAÇÃO DE LEADS NO CRM DINÂMICO E AVANÇADO
         // ==========================================
         async function adicionarCliente() {
             const nome = document.getElementById('clienteNome').value;
@@ -1483,21 +1562,22 @@
             const email = document.getElementById('clienteEmail').value;
             const telefone = document.getElementById('clienteTelefone').value;
             const origem = document.getElementById('clienteOrigem').value;
+            const url = document.getElementById('clienteUrl').value;
+            const obs = document.getElementById('clienteObs').value;
             if (!nome) return showMessage("Pelo menos o Nome do Lead é exigido.", "error");
 
             const crmTable = getUserCrmTable();
-            const payload = { nome, empresa, email, telefone, origem, status: 'Novo' };
+            const payload = { nome, empresa, email, telefone, origem, url, obs, status: 'Novo' };
             const res = await apiFetch(`/items/${crmTable}`, 'POST', payload);
             
             if(res && res.data) {
                 clientes.push({ id: res.data.id, ...payload });
                 showMessage("Lead gravado na base de dados conectada.", "success");
+                atualizarFiltroOrigem();
                 renderizarClientes();
-                document.getElementById('clienteNome').value = '';
-                document.getElementById('clienteEmpresa').value = '';
-                document.getElementById('clienteEmail').value = '';
-                document.getElementById('clienteTelefone').value = '';
-                document.getElementById('clienteOrigem').value = '';
+                
+                // Limpa campos
+                ['clienteNome','clienteEmpresa','clienteEmail','clienteTelefone','clienteOrigem','clienteUrl','clienteObs'].forEach(id => document.getElementById(id).value='');
                 carregarClientesNaVenda();
             }
         }
@@ -1509,6 +1589,7 @@
                 await apiFetch(`/items/${crmTable}/${id}`, 'DELETE');
                 clientes = clientes.filter(c => c.id !== id);
                 showMessage("Registro deletado com sucesso.", "info");
+                atualizarFiltroOrigem();
                 renderizarClientes(); carregarClientesNaVenda();
             }
         }
@@ -1521,12 +1602,20 @@
             let statusText = c.status || 'Novo';
 
             tr.innerHTML = `
-                <td><input type="text" class="crm-input edit-nome" value="${c.nome || ''}"></td>
-                <td><input type="text" class="crm-input edit-empresa" value="${c.empresa || ''}"></td>
+                <td onclick="event.stopPropagation()"></td>
+                <td>
+                    <input type="text" class="crm-input edit-nome" value="${c.nome || ''}" placeholder="Nome">
+                    <input type="text" class="crm-input edit-empresa" value="${c.empresa || ''}" placeholder="Empresa">
+                </td>
                 <td>
                     <input type="text" class="crm-input edit-email" value="${c.email || ''}" placeholder="E-mail">
                     <input type="text" class="crm-input edit-telefone" value="${c.telefone || ''}" placeholder="Telefone">
                 </td>
+                <td>
+                    <input type="text" class="crm-input edit-origem" value="${c.origem || ''}" placeholder="Origem">
+                    <input type="text" class="crm-input edit-url" value="${c.url || ''}" placeholder="URL">
+                </td>
+                <td><textarea class="crm-input edit-obs" rows="2" placeholder="Observações">${c.obs || ''}</textarea></td>
                 <td>
                     <select class="crm-select edit-status">
                         <option value="Novo" ${statusText === 'Novo' ? 'selected' : ''}>Novo</option>
@@ -1535,11 +1624,12 @@
                         <option value="ENVIADO EM MASSA" ${statusText === 'ENVIADO EM MASSA' ? 'selected' : ''}>Massa</option>
                     </select>
                 </td>
-                <td style="display:flex; gap:5px;">
-                    <button class="btn" style="padding: 6px 12px; font-size: 0.75rem;" onclick="salvarCliente(${id})">💾</button>
-                    <button class="btn-danger" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 4px;" onclick="renderizarClientes()">❌</button>
+                <td style="display:flex; gap:5px; flex-direction:column;" onclick="event.stopPropagation()">
+                    <button class="btn" style="padding: 6px; font-size: 0.75rem; margin:0;" onclick="salvarCliente(${id})">💾 Salvar</button>
+                    <button class="btn-danger" style="padding: 6px; font-size: 0.75rem; margin:0;" onclick="renderizarClientes()">❌ Cancelar</button>
                 </td>
             `;
+            tr.removeAttribute("ondblclick");
         }
 
         async function salvarCliente(id) {
@@ -1548,28 +1638,120 @@
             const empresa = tr.querySelector('.edit-empresa').value;
             const email = tr.querySelector('.edit-email').value;
             const telefone = tr.querySelector('.edit-telefone').value;
+            const origem = tr.querySelector('.edit-origem').value;
+            const url = tr.querySelector('.edit-url').value;
+            const obs = tr.querySelector('.edit-obs').value;
             const status = tr.querySelector('.edit-status').value;
 
             if (!nome) return showMessage("Nome é obrigatório.", "error");
 
             const crmTable = getUserCrmTable();
-            const payload = { nome, empresa, email, telefone, status };
+            const payload = { nome, empresa, email, telefone, origem, url, obs, status };
             
             const res = await apiFetch(`/items/${crmTable}/${id}`, 'PATCH', payload);
             if(res) {
                 const c = clientes.find(x => x.id === id);
                 Object.assign(c, payload);
                 showMessage("Lead atualizado com sucesso no DB.", "success");
+                atualizarFiltroOrigem();
                 renderizarClientes();
                 carregarClientesNaVenda();
             }
         }
 
+        function toggleMassCheck(masterCheckbox) {
+            document.querySelectorAll('.mass-check-item').forEach(cb => cb.checked = masterCheckbox.checked);
+        }
+
+        async function aplicarAcaoEmMassa() {
+            const status = document.getElementById('massActionStatus').value;
+            if(!status) return showMessage("Selecione um status para aplicar.", "error");
+            
+            const checkedBoxes = Array.from(document.querySelectorAll('.mass-check-item:checked'));
+            if(checkedBoxes.length === 0) return showMessage("Selecione ao menos um lead na tabela.", "error");
+
+            if(!confirm(`Deseja alterar o status de ${checkedBoxes.length} leads para '${status}'?`)) return;
+
+            const crmTable = getUserCrmTable();
+            let successCount = 0;
+            
+            showMessage(`Atualizando ${checkedBoxes.length} leads no DB...`, "info");
+            
+            for(const cb of checkedBoxes) {
+                const id = cb.value;
+                const res = await apiFetch(`/items/${crmTable}/${id}`, 'PATCH', { status });
+                if(res) {
+                    const c = clientes.find(x => x.id == id);
+                    if(c) c.status = status;
+                    successCount++;
+                }
+            }
+            
+            showMessage(`Ação em massa concluída. ${successCount} atualizados.`, "success");
+            document.getElementById('massActionStatus').value = '';
+            document.getElementById('massCheckAll').checked = false;
+            renderizarClientes();
+        }
+
+        function abrirPainelContato(id) {
+            const c = clientes.find(x => x.id === id);
+            if(!c) return;
+            currentContactId = id;
+            document.getElementById('contactModalInfo').innerHTML = `
+                <div style="margin-bottom: 5px;"><strong>Lead:</strong> <span style="color:var(--color-secondary);">${c.nome || '-'}</span></div>
+                <div style="margin-bottom: 5px;"><strong>Empresa:</strong> ${c.empresa || '-'}</div>
+                <div style="margin-bottom: 5px;"><strong>E-mail:</strong> ${c.email || '-'}</div>
+                <div><strong>WhatsApp:</strong> ${c.telefone || '-'}</div>
+            `;
+            document.getElementById('contactMessageTemplate').value = localStorage.getItem('crm_msg_template') || 'Olá {nome}, tudo bem? Vi que é da empresa {empresa}.';
+            document.getElementById('contactModal').style.display = 'flex';
+        }
+
+        function saveMessageTemplate() {
+            localStorage.setItem('crm_msg_template', document.getElementById('contactMessageTemplate').value);
+        }
+
+        function parseMessage(text, c) {
+            return text.replace(/{nome}/g, c.nome || '').replace(/{empresa}/g, c.empresa || '');
+        }
+
+        function enviarWhatsappModal() {
+            const c = clientes.find(x => x.id === currentContactId);
+            if(!c || !c.telefone) return showMessage("Lead sem número de telefone cadastrado.", "error");
+            let num = c.telefone.replace(/\D/g, '');
+            if(num && !num.startsWith('55') && num.length > 9) num = '55' + num;
+            const rawMsg = document.getElementById('contactMessageTemplate').value;
+            const finalMsg = encodeURIComponent(parseMessage(rawMsg, c));
+            window.open(`https://wa.me/${num}?text=${finalMsg}`, '_blank');
+        }
+
+        function enviarEmailModal() {
+            const c = clientes.find(x => x.id === currentContactId);
+            if(!c || !c.email) return showMessage("Lead sem e-mail cadastrado.", "error");
+            const rawMsg = document.getElementById('contactMessageTemplate').value;
+            const finalMsg = encodeURIComponent(parseMessage(rawMsg, c));
+            window.open(`mailto:${c.email}?body=${finalMsg}`, '_blank');
+        }
+
         function renderizarClientes() {
             const listaDiv = document.getElementById('lista-clientes');
             
-            if (clientes.length === 0) {
-                listaDiv.innerHTML = '<p class="empty-state">Diretório CRM Vazio.</p>';
+            const search = (document.getElementById('crmSearch')?.value || '').toLowerCase();
+            const fStatus = document.getElementById('crmFilterStatus')?.value || '';
+            const fOrigem = document.getElementById('crmFilterOrigem')?.value || '';
+
+            const filtered = clientes.filter(c => {
+                const matchSearch = (c.nome || '').toLowerCase().includes(search) ||
+                                    (c.empresa || '').toLowerCase().includes(search) ||
+                                    (c.email || '').toLowerCase().includes(search) ||
+                                    (c.telefone || '').toLowerCase().includes(search);
+                const matchStatus = fStatus ? (c.status || 'Novo') === fStatus : true;
+                const matchOrigem = fOrigem ? (c.origem || '') === fOrigem : true;
+                return matchSearch && matchStatus && matchOrigem;
+            });
+
+            if (filtered.length === 0) {
+                listaDiv.innerHTML = '<p class="empty-state">Nenhum resultado encontrado no diretório.</p>';
                 return;
             }
 
@@ -1578,17 +1760,19 @@
                 <table class="crm-table">
                     <thead>
                         <tr>
-                            <th>Identificação</th>
-                            <th>Empresa</th>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" id="massCheckAll" class="mass-check-item" onclick="toggleMassCheck(this)"></th>
+                            <th>Lead / Empresa</th>
                             <th>Contato</th>
-                            <th>Status CRM</th>
+                            <th>Origem / URL</th>
+                            <th>Observações</th>
+                            <th>Status</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
 
-            clientes.forEach(c => {
+            filtered.forEach(c => {
                 let statusClass = 'status-default';
                 let statusText = c.status || 'Novo';
                 
@@ -1598,17 +1782,25 @@
                 else if (statusText === 'ENVIADO EM MASSA') statusClass = 'status-enviado';
 
                 html += `
-                    <tr data-id="${c.id}">
-                        <td style="font-weight: bold; color: var(--color-text-light); font-family: 'Archivo Black', sans-serif;">${c.nome || '-'}</td>
-                        <td>${c.empresa || '-'}</td>
+                    <tr data-id="${c.id}" ondblclick="editarCliente(${c.id})" style="cursor: pointer;" title="Dê 2 cliques para editar a linha inteira">
+                        <td style="text-align: center;" onclick="event.stopPropagation()"><input type="checkbox" class="mass-check-item" value="${c.id}"></td>
                         <td>
-                            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-bottom:2px;">${c.email || 'S/ Email'}</div>
-                            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7);">${c.telefone || 'S/ Tel'}</div>
+                            <div style="font-weight: bold; color: var(--color-text-light); font-family: 'Archivo Black', sans-serif;">${c.nome || '-'}</div>
+                            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.5);">${c.empresa || '-'}</div>
                         </td>
+                        <td>
+                            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-bottom:2px;">📧 ${c.email || 'S/ Email'}</div>
+                            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7);">📞 ${c.telefone || 'S/ Tel'}</div>
+                        </td>
+                        <td>
+                            <div style="font-size: 0.85rem;">📍 ${c.origem || '-'}</div>
+                            ${c.url ? `<div style="font-size: 0.8rem; margin-top:2px;"><a href="${c.url.startsWith('http') ? c.url : 'https://'+c.url}" target="_blank" style="color:var(--color-secondary);" onclick="event.stopPropagation()">🔗 Visitar Link</a></div>` : ''}
+                        </td>
+                        <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem; color: rgba(255,255,255,0.6);" title="${c.obs || ''}">${c.obs || '-'}</td>
                         <td><span class="crm-status ${statusClass}">${statusText}</span></td>
-                        <td style="display:flex; gap:5px;">
-                            <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 4px;" onclick="editarCliente(${c.id})">✏️</button>
-                            <button class="btn-danger" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 4px;" onclick="removerCliente(${c.id})">🗑️</button>
+                        <td style="display:flex; gap:5px; flex-direction:column;" onclick="event.stopPropagation()">
+                            <button class="btn-secondary" style="padding: 6px; font-size: 0.75rem; border-radius: 4px; border-color: var(--color-secondary); color: var(--color-secondary); margin:0;" onclick="abrirPainelContato(${c.id})">💬 Ação Direta</button>
+                            <button class="btn-danger" style="padding: 6px; font-size: 0.75rem; border-radius: 4px; margin:0;" onclick="removerCliente(${c.id})">🗑️ Deletar</button>
                         </td>
                     </tr>
                 `;
@@ -1949,7 +2141,7 @@
 
                     const crmTable = getUserCrmTable();
                     for (const c of d_cli) {
-                        await apiFetch(`/items/${crmTable}`, 'POST', { nome: c.nome, empresa: c.empresa, email: c.email, telefone: c.telefone, origem: c.origem, status: c.status || 'Novo' });
+                        await apiFetch(`/items/${crmTable}`, 'POST', { nome: c.nome, empresa: c.empresa, email: c.email, telefone: c.telefone, origem: c.origem, url: c.url, obs: c.obs, status: c.status || 'Novo' });
                     }
                     
                     if(workbook.SheetNames.includes("Producao")) memoryData['productionData'] = XLSX.utils.sheet_to_json(workbook.Sheets["Producao"])[0] || {};
