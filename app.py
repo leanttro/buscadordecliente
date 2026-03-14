@@ -192,7 +192,7 @@ def criar_coluna_dinamica(token, user_id, nome_campo, tipo_interface):
     table_name = get_user_table_name(user_id)
     base_url = DIRECTUS_URL.rstrip('/')
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    slug = nome_campo.lower().strip().replace(" ", "_").replace("ç", "c")
+    slug = nome_campo.lower().strip().replace(" ", "_", ).replace("ç", "c")
     mapa = {"Texto": "string", "Número": "integer", "Data": "date"}
     type_d = mapa.get(tipo_interface, "string")
     payload = {"field": slug, "type": type_d, "meta": {"interface": "input", "width": "full"}, "schema": {"is_nullable": True}}
@@ -510,7 +510,7 @@ if 'smtp_loaded' not in st.session_state:
     st.session_state['smtp_loaded'] = True
 
 if "system_prompt_padrao" not in st.session_state:
-    st.session_state.system_prompt_padrao = "ATUE COMO Head de Vendas da Leanttro Digital. OBJETIVO Encontrar quem está COMPRANDO ou BUSCANDO serviços ignore quem está vendendo. PRODUTOS Catálogo online Site simples Automação de WhatsApp IA para negócios Identidade visual. TAREFAS 1 Identifique se o autor ESTÁ BUSCANDO o serviço Score 80 a 100. 2 Se for alguém VENDENDO ou agência concorrente Score é ZERO. 3 Identifique o NOME e o TIPO DE OPORTUNIDADE. SAÍDA JSON OBRIGATÓRIA { autor Nome de quem busca score 0 a 100 resumo_post Resumo do que a pessoa precisa produto_recomendado Serviço exato argumento_venda Como abordar para vender rápido }"
+    st.session_state.system_prompt_padrao = "ATUE COMO Head de Vendas. OBJETIVO Encontrar quem está COMPRANDO ou BUSCANDO serviços e ignorar quem está vendendo ou postagens gringas. TAREFAS 1 O texto deve estar em Português do Brasil. 2 Identifique se o autor ESTÁ BUSCANDO o serviço Score 80 a 100. 3 Se for alguém VENDENDO ou agência concorrente Score é ZERO. SAÍDA JSON OBRIGATÓRIA { autor Nome de quem busca score 0 a 100 resumo_post Resumo do que a pessoa precisa produto_recomendado Serviço exato argumento_venda Como abordar para vender rápido }"
 
 if "saudacoes" not in st.session_state: st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi", "Fala"]
 if "delay_min" not in st.session_state: st.session_state.delay_min = 300
@@ -552,18 +552,21 @@ try:
 
     with tab1:
         st.markdown("### CAÇADOR DE OPORTUNIDADES B2B")
-        c1, c2, c3, c4 = st.columns([3, 3, 2, 1])
+        c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 1])
         with c1: origem = st.selectbox("Onde buscar", list(SUGESTOES_STRATEGICAS.keys()))
         with c2: termo = st.text_input("Intenção de busca", placeholder="Ex preciso de site")
-        with c3: tempo = st.selectbox("Período", ["Últimas 24 Horas", "Última Semana", "Último Mês", "Qualquer data"])
-        with c4: qtd = st.number_input("Qtd", 1, 50, 10)
+        with c3: cidade_radar = st.text_input("Cidade (Opcional)", placeholder="Ex São Paulo")
+        with c4: tempo = st.selectbox("Período", ["Últimas 24 Horas", "Última Semana", "Último Mês", "Qualquer data"])
+        with c5: qtd = st.number_input("Qtd", 1, 50, 10)
         btn = st.button("RASTREAR COMPRADORES", key="btn_radar")
 
         if btn and termo:
             if not (GROQ_API_KEY and SERPER_API_KEY): st.error("Configure as chaves.")
             else:
+                termo_busca = f'{termo} {cidade_radar}'.strip()
                 periodo_api = "qdr:d" if "24 Horas" in tempo else "qdr:w" if "Semana" in tempo else "qdr:m" if "Mês" in tempo else ""
-                query_final = f'site:linkedin.com/posts "{termo}"' if origem == "LinkedIn" else f'(site:workana.com OR site:99freelas.com.br) "{termo}"' if origem == "Sites de Freelance" else f'"{termo}"'
+                query_final = f'site:linkedin.com/posts "{termo_busca}"' if origem == "LinkedIn" else f'(site:workana.com OR site:99freelas.com.br) "{termo_busca}"' if origem == "Sites de Freelance" else f'"{termo_busca}"'
+                
                 resultados = search_google_serper(query_final, periodo_api, qtd)
                 if not resultados: st.warning("Nenhum sinal encontrado.")
                 else:
@@ -633,6 +636,7 @@ try:
                                     "Empresa": limpar_nome(nome_empresa), 
                                     "Nicho": nicho, 
                                     "Bairro": bairro, 
+                                    "Endereço Real": endereco,
                                     "Whatsapp": zap_oficial, 
                                     "Email": "", 
                                     "Fonte": "Google Maps", 
@@ -646,13 +650,17 @@ try:
                             texto_completo = (r.get('title', '') + " " + r.get('snippet', '')).lower()
                             zap = extrair_whatsapp(texto_completo)
                             email = extrair_email(texto_completo)
+                            
+                            if zap is None: zap = ""
+                            if email is None: email = ""
+                            
                             if zap or email:
                                 exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
                                 exists_new = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
                                 exists_db = (zap and zap in telefones_db) or (email and email in emails_db)
                                 
                                 if not exists_local and not exists_new and not exists_db:
-                                    novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Whatsapp": zap if zap else "", "Email": email if email else "", "Fonte": fonte_alvo, "Link": r.get('link')})
+                                    novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Endereço Real": "N/A", "Whatsapp": zap, "Email": email, "Fonte": fonte_alvo, "Link": r.get('link')})
                 bar.progress((i + 1) / len(lista_bairros))
                 time.sleep(0.5) 
             if novos_leads:
@@ -679,8 +687,9 @@ try:
                     if is_dup_zap or is_dup_email:
                         duplicados += 1
                         continue
-                        
-                    salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"]})
+                    
+                    obs_text = f"Endereço: {row.get('Endereço Real', '')}" if row.get('Endereço Real') and row.get('Endereço Real') != "N/A" else ""    
+                    salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"], "obs": obs_text})
                     salvos += 1
                     if zap_row: telefones_db.append(zap_row)
                     if email_row: emails_db.append(email_row)
@@ -1141,6 +1150,10 @@ try:
         col_a.metric("Limite Seguro de Hoje", daily_lim)
         col_b.metric("Disparos Hoje", tracking["sent_today"])
         col_c.metric("Disparos Nesta Hora", f"{tracking['sent_this_hour']} / 10")
+        
+        st.divider()
+        st.markdown("### 🧠 INSTRUÇÕES DA IA CAÇADORA")
+        st.session_state.system_prompt_padrao = st.text_area("Edite as regras de classificação da IA", value=st.session_state.system_prompt_padrao, height=150)
         
         if st.button("Zerar Contadores de Segurança Perigo"):
             os.remove(get_tracking_file(user_id))
