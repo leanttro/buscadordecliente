@@ -156,6 +156,21 @@
         .item-detail { color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
         .item-actions { display: flex; gap: 10px; margin-left: 15px; }
 
+        /* Nova Tabela de CRM */
+        .crm-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .crm-table th, .crm-table td { padding: 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); font-size: 0.9rem; }
+        .crm-table th { background: rgba(124, 58, 237, 0.1); color: var(--color-primary); font-family: 'Archivo Black', sans-serif; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+        .crm-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .crm-status { padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; display: inline-block; text-align: center; }
+        .status-novo { background: rgba(0, 229, 255, 0.1); color: var(--color-secondary); border: 1px solid var(--color-secondary); }
+        .status-quente { background: rgba(255, 152, 0, 0.1); color: #ff9800; border: 1px solid #ff9800; }
+        .status-cliente { background: rgba(76, 175, 80, 0.1); color: #4caf50; border: 1px solid #4caf50; }
+        .status-enviado { background: rgba(124, 58, 237, 0.1); color: #b388ff; border: 1px solid var(--color-primary); }
+        .status-default { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+        .crm-input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(124, 58, 237, 0.5); color: white; padding: 8px; border-radius: 6px; font-size: 0.85rem; font-family: 'Inter', sans-serif; transition: all 0.3s; margin-bottom: 5px; }
+        .crm-input:focus { outline: none; border-color: var(--color-secondary); box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
+        .crm-select { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(124, 58, 237, 0.5); color: white; padding: 8px; border-radius: 6px; font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+
         .collapsible-header { background: rgba(255,255,255,0.05); color: var(--color-text-light); padding: 15px 20px; border-radius: 12px; cursor: pointer; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; transition: background 0.3s ease; border: 1px solid rgba(255,255,255,0.1); }
         .collapsible-header:hover { background: rgba(124, 58, 237, 0.2); border-color: var(--color-primary); }
         .collapsible-content { background: rgba(0,0,0,0.3); padding: 0 20px; max-height: 0; overflow: hidden; transition: max-height 0.5s ease-out, padding 0.5s ease-out; border-radius: 0 0 12px 12px; border: 1px solid transparent; }
@@ -260,7 +275,7 @@
             <button class="tab-btn" onclick="showTab('calculadora')">🧮 Precificação</button>
             <button class="tab-btn" onclick="showTab('vendas')">💰 Receita</button>
             <button class="tab-btn" onclick="showTab('produtos')">📦 Catálogo</button>
-            <button class="tab-btn" onclick="showTab('clientes')">👥 Leads/Clientes</button>
+            <button class="tab-btn" onclick="showTab('clientes')">👥 Base de Leads</button>
             <button class="tab-btn" onclick="showTab('estoque')">📦 Estoque</button>
             <button class="tab-btn" onclick="showTab('dicas')">💡 Insights</button>
             <button class="tab-btn" onclick="showTab('configuracoes')">⚙️ Setup</button>
@@ -583,39 +598,57 @@
 
         <div id="clientes" class="tab-content">
             <div class="card">
-                <h2>👥 Base de Leads & Clientes</h2>
-                <div class="form-grid">
+                <h2>👥 Base de Leads (CRM)</h2>
+                <div class="form-grid" style="grid-template-columns: 1fr;">
                     <div class="form-section">
                         <h3>Input Manual de Lead</h3>
-                        <div class="form-group">
-                            <label for="clienteNome">Identificação (Nome/Empresa)</label>
-                            <div class="input-with-icon">
-                                <span class="input-icon">👤</span>
-                                <input type="text" id="clienteNome" placeholder="Ex: Empresa X">
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="form-group" style="flex: 1; min-width: 200px;">
+                                <label for="clienteNome">Nome do Lead</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">👤</span>
+                                    <input type="text" id="clienteNome" placeholder="Ex: João Silva">
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 200px;">
+                                <label for="clienteEmpresa">Empresa</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">🏢</span>
+                                    <input type="text" id="clienteEmpresa" placeholder="Ex: Corporação X">
+                                </div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="clienteEmail">Endereço de E-mail</label>
-                            <div class="input-with-icon">
-                                <span class="input-icon">📧</span>
-                                <input type="email" id="clienteEmail" placeholder="contato@empresa.com">
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="form-group" style="flex: 1; min-width: 200px;">
+                                <label for="clienteEmail">E-mail</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">📧</span>
+                                    <input type="email" id="clienteEmail" placeholder="contato@empresa.com">
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 200px;">
+                                <label for="clienteTelefone">WhatsApp</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">📞</span>
+                                    <input type="tel" id="clienteTelefone" placeholder="5511999999999">
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 200px;">
+                                <label for="clienteOrigem">Origem</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">📍</span>
+                                    <input type="text" id="clienteOrigem" placeholder="Ex: Radar, Instagram">
+                                </div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="clienteTelefone">Número de WhatsApp</label>
-                            <div class="input-with-icon">
-                                <span class="input-icon">📞</span>
-                                <input type="tel" id="clienteTelefone" placeholder="5511999999999">
-                            </div>
-                        </div>
-                        <button class="btn" onclick="adicionarCliente()">Salvar Lead 🌟</button>
+                        <button class="btn" onclick="adicionarCliente()">Gravar Lead no DB 🌟</button>
                     </div>
+                </div>
 
-                    <div class="form-section">
-                        <h3>Diretório de Contatos</h3>
-                        <div id="lista-clientes" class="item-list">
-                            <p class="empty-state">Diretório vazio.</p>
-                        </div>
+                <div class="form-section" style="margin-top: 25px;">
+                    <h3>Tabela de Diretório</h3>
+                    <div id="lista-clientes">
+                        <p class="empty-state">Diretório vazio.</p>
                     </div>
                 </div>
             </div>
@@ -805,6 +838,12 @@
         let currentUser = null; 
         let salesChart = null; 
 
+        // Função crucial para pegar o nome da tabela baseada na conta real do Python
+        function getUserCrmTable() {
+            if (!currentUser || !currentUser.id) return 'mt_clientes'; // fallback
+            return 'crm_' + currentUser.id.replace(/-/g, '_');
+        }
+
         async function apiFetch(endpoint, method = 'GET', body = null) {
             const headers = { 'Content-Type': 'application/json' };
             if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -957,9 +996,13 @@
             estoque = {};
             (prodRes?.data || []).forEach(p => { estoque[p.id] = p.estoque_atual || 0; });
 
-            const cliRes = await apiFetch('/items/mt_clientes');
+            // Carregamento dinâmico da tabela do Python
+            const crmTable = getUserCrmTable();
+            const cliRes = await apiFetch(`/items/${crmTable}?limit=-1`);
+            
+            // Se a tabela existe, processa. Se não, array vazio.
             clientes = (cliRes?.data || []).map(c => ({
-                id: c.id, nome: c.nome, email: c.email, telefone: c.telefone
+                id: c.id, nome: c.nome, empresa: c.empresa, email: c.email, telefone: c.telefone, origem: c.origem, status: c.status || 'Novo'
             }));
 
             const vendRes = await apiFetch('/items/mt_vendas');
@@ -1431,50 +1474,148 @@
 
         function cancelEditProduto(id) { renderizarProdutos(); }
 
+        // ==========================================
+        // INTEGRAÇÃO DE LEADS NO CRM DINÂMICO
+        // ==========================================
         async function adicionarCliente() {
             const nome = document.getElementById('clienteNome').value;
+            const empresa = document.getElementById('clienteEmpresa').value;
             const email = document.getElementById('clienteEmail').value;
             const telefone = document.getElementById('clienteTelefone').value;
-            if (!nome) return showMessage("Pelo menos o identificador do Lead é exigido.", "error");
+            const origem = document.getElementById('clienteOrigem').value;
+            if (!nome) return showMessage("Pelo menos o Nome do Lead é exigido.", "error");
 
-            const res = await apiFetch('/items/mt_clientes', 'POST', { nome, email, telefone });
+            const crmTable = getUserCrmTable();
+            const payload = { nome, empresa, email, telefone, origem, status: 'Novo' };
+            const res = await apiFetch(`/items/${crmTable}`, 'POST', payload);
+            
             if(res && res.data) {
-                clientes.push({ id: res.data.id, nome, email, telefone });
-                showMessage("Lead gravado na base de dados.", "success");
+                clientes.push({ id: res.data.id, ...payload });
+                showMessage("Lead gravado na base de dados conectada.", "success");
                 renderizarClientes();
                 document.getElementById('clienteNome').value = '';
+                document.getElementById('clienteEmpresa').value = '';
                 document.getElementById('clienteEmail').value = '';
                 document.getElementById('clienteTelefone').value = '';
+                document.getElementById('clienteOrigem').value = '';
                 carregarClientesNaVenda();
             }
         }
 
         async function removerCliente(id) {
             if (vendas.some(v => v.clienteId == id)) return showMessage("Falha: Existem faturas/receitas atreladas a este Lead.", "error");
-            if (confirm("Confirmar a exclusão total do contato na base?")) {
-                await apiFetch(`/items/mt_clientes/${id}`, 'DELETE');
+            if (confirm("Confirmar a exclusão total do lead na base conectada?")) {
+                const crmTable = getUserCrmTable();
+                await apiFetch(`/items/${crmTable}/${id}`, 'DELETE');
                 clientes = clientes.filter(c => c.id !== id);
                 showMessage("Registro deletado com sucesso.", "info");
                 renderizarClientes(); carregarClientesNaVenda();
             }
         }
 
+        function editarCliente(id) {
+            const tr = document.querySelector(`tr[data-id="${id}"]`);
+            const c = clientes.find(x => x.id === id);
+            if (!tr || !c) return;
+
+            let statusText = c.status || 'Novo';
+
+            tr.innerHTML = `
+                <td><input type="text" class="crm-input edit-nome" value="${c.nome || ''}"></td>
+                <td><input type="text" class="crm-input edit-empresa" value="${c.empresa || ''}"></td>
+                <td>
+                    <input type="text" class="crm-input edit-email" value="${c.email || ''}" placeholder="E-mail">
+                    <input type="text" class="crm-input edit-telefone" value="${c.telefone || ''}" placeholder="Telefone">
+                </td>
+                <td>
+                    <select class="crm-select edit-status">
+                        <option value="Novo" ${statusText === 'Novo' ? 'selected' : ''}>Novo</option>
+                        <option value="Quente" ${statusText === 'Quente' ? 'selected' : ''}>Quente</option>
+                        <option value="Cliente" ${statusText === 'Cliente' ? 'selected' : ''}>Cliente</option>
+                        <option value="ENVIADO EM MASSA" ${statusText === 'ENVIADO EM MASSA' ? 'selected' : ''}>Massa</option>
+                    </select>
+                </td>
+                <td style="display:flex; gap:5px;">
+                    <button class="btn" style="padding: 6px 12px; font-size: 0.75rem;" onclick="salvarCliente(${id})">💾</button>
+                    <button class="btn-danger" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 4px;" onclick="renderizarClientes()">❌</button>
+                </td>
+            `;
+        }
+
+        async function salvarCliente(id) {
+            const tr = document.querySelector(`tr[data-id="${id}"]`);
+            const nome = tr.querySelector('.edit-nome').value;
+            const empresa = tr.querySelector('.edit-empresa').value;
+            const email = tr.querySelector('.edit-email').value;
+            const telefone = tr.querySelector('.edit-telefone').value;
+            const status = tr.querySelector('.edit-status').value;
+
+            if (!nome) return showMessage("Nome é obrigatório.", "error");
+
+            const crmTable = getUserCrmTable();
+            const payload = { nome, empresa, email, telefone, status };
+            
+            const res = await apiFetch(`/items/${crmTable}/${id}`, 'PATCH', payload);
+            if(res) {
+                const c = clientes.find(x => x.id === id);
+                Object.assign(c, payload);
+                showMessage("Lead atualizado com sucesso no DB.", "success");
+                renderizarClientes();
+                carregarClientesNaVenda();
+            }
+        }
+
         function renderizarClientes() {
             const listaDiv = document.getElementById('lista-clientes');
-            listaDiv.innerHTML = clientes.length === 0 ? '<p class="empty-state">Diretório vazio.</p>' : '';
+            
+            if (clientes.length === 0) {
+                listaDiv.innerHTML = '<p class="empty-state">Diretório CRM Vazio.</p>';
+                return;
+            }
+
+            let html = `
+                <div style="overflow-x: auto;">
+                <table class="crm-table">
+                    <thead>
+                        <tr>
+                            <th>Identificação</th>
+                            <th>Empresa</th>
+                            <th>Contato</th>
+                            <th>Status CRM</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
             clientes.forEach(c => {
-                const div = document.createElement('div');
-                div.className = 'item';
-                div.innerHTML = `
-                    <div class="item-info">
-                        <div class="item-name">${c.nome}</div>
-                        <div class="item-detail">${c.email ? `Endereço Digital: ${c.email}` : ''}</div>
-                        <div class="item-detail">${c.telefone ? `Tel. Conexão: ${c.telefone}` : ''}</div>
-                    </div>
-                    <button class="btn-danger" style="padding:10px 15px; border-radius:8px;" onclick="removerCliente(${c.id})">🗑️</button>
+                let statusClass = 'status-default';
+                let statusText = c.status || 'Novo';
+                
+                if (statusText.toLowerCase() === 'novo') statusClass = 'status-novo';
+                else if (statusText.toLowerCase() === 'quente') statusClass = 'status-quente';
+                else if (statusText.toLowerCase() === 'cliente') statusClass = 'status-cliente';
+                else if (statusText === 'ENVIADO EM MASSA') statusClass = 'status-enviado';
+
+                html += `
+                    <tr data-id="${c.id}">
+                        <td style="font-weight: bold; color: var(--color-text-light); font-family: 'Archivo Black', sans-serif;">${c.nome || '-'}</td>
+                        <td>${c.empresa || '-'}</td>
+                        <td>
+                            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-bottom:2px;">${c.email || 'S/ Email'}</div>
+                            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7);">${c.telefone || 'S/ Tel'}</div>
+                        </td>
+                        <td><span class="crm-status ${statusClass}">${statusText}</span></td>
+                        <td style="display:flex; gap:5px;">
+                            <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 4px;" onclick="editarCliente(${c.id})">✏️</button>
+                            <button class="btn-danger" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 4px;" onclick="removerCliente(${c.id})">🗑️</button>
+                        </td>
+                    </tr>
                 `;
-                listaDiv.appendChild(div);
             });
+
+            html += `</tbody></table></div>`;
+            listaDiv.innerHTML = html;
         }
 
         function carregarClientesNaVenda() {
@@ -1776,7 +1917,7 @@
             if (!currentUser) return showMessage("Status: Not Authorized.", "error");
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(produtos), "Produtos");
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(clientes), "Clientes");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(clientes), "Leads");
             const vFmt = vendas.map(v => ({ ID: v.id, Data: v.data, Cliente: v.clienteNome, Total: v.total, Itens: v.produtos.map(p => `${p.nome} (${p.quantidade}x)`).join('; ') }));
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(vFmt), "Vendas");
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(custosFixos), "Custos Fixos");
@@ -1800,13 +1941,15 @@
                     showMessage("Iniciando injeção POST no BD Master...", "info");
 
                     const d_prod = workbook.SheetNames.includes("Produtos") ? XLSX.utils.sheet_to_json(workbook.Sheets["Produtos"]) : [];
-                    const d_cli = workbook.SheetNames.includes("Clientes") ? XLSX.utils.sheet_to_json(workbook.Sheets["Clientes"]) : [];
+                    const d_cli = workbook.SheetNames.includes("Leads") ? XLSX.utils.sheet_to_json(workbook.Sheets["Leads"]) : [];
 
                     for (const p of d_prod) {
                         await apiFetch('/items/mt_produtos', 'POST', { nome: p.nome, preco_custo: p.precoCusto, preco_venda: p.precoVenda, estoque_minimo: p.estoqueMinimo, estoque_atual: p.estoqueMinimo });
                     }
+
+                    const crmTable = getUserCrmTable();
                     for (const c of d_cli) {
-                        await apiFetch('/items/mt_clientes', 'POST', { nome: c.nome, email: c.email, telefone: c.telefone });
+                        await apiFetch(`/items/${crmTable}`, 'POST', { nome: c.nome, empresa: c.empresa, email: c.email, telefone: c.telefone, origem: c.origem, status: c.status || 'Novo' });
                     }
                     
                     if(workbook.SheetNames.includes("Producao")) memoryData['productionData'] = XLSX.utils.sheet_to_json(workbook.Sheets["Producao"])[0] || {};
