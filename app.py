@@ -670,6 +670,12 @@ try:
         if st.session_state["leads_isolados"]:
             df_mine = pd.DataFrame(st.session_state["leads_isolados"])
             st.dataframe(df_mine, width='stretch')
+            
+            buffer_mine = BytesIO()
+            with pd.ExcelWriter(buffer_mine, engine='openpyxl') as writer:
+                df_mine.to_excel(writer, index=False)
+            st.download_button(label="📥 BAIXAR EXCEL MINEIRADOS", data=buffer_mine.getvalue(), file_name="leads_mineirados.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            
             if st.button("SALVAR TODOS NO CRM"):
                 df_atual = carregar_dados(token, user_id)
                 telefones_db = df_atual['telefone'].dropna().astype(str).tolist() if not df_atual.empty and 'telefone' in df_atual.columns else []
@@ -728,6 +734,12 @@ try:
         with sub_t1:
             col_config = {'id': st.column_config.Column("id", disabled=True, hidden=True)} if 'id' in df_visual.columns and 'id' not in cols_visiveis else {}
             edited = st.data_editor(df_visual, num_rows="dynamic", width='stretch', key="editor", column_config=col_config)
+            
+            buffer_crm = BytesIO()
+            with pd.ExcelWriter(buffer_crm, engine='openpyxl') as writer:
+                df_visual.to_excel(writer, index=False)
+            st.download_button(label="📥 BAIXAR EXCEL CRM", data=buffer_crm.getvalue(), file_name="clientes_crm.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            
             if st.button("SALVAR ALTERACOES NA BASE"):
                 chg = st.session_state["editor"]
                 for idx in chg.get("deleted_rows", []):
