@@ -689,7 +689,7 @@ try:
                         continue
                     
                     obs_text = f"Endereço: {row.get('Endereço Real', '')}" if row.get('Endereço Real') and row.get('Endereço Real') != "N/A" else ""    
-                    salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"], "obs": obs_text})
+                    salvar_lead_crm(token, user_id, {"empresa": row["Empresa"], "email": email_row, "telefone": zap_row, "origem": row["Fonte"], "ramo": row["Nicho"], "url": row["Link"], "obs": obs_text, "bairro": row["Bairro"]})
                     salvos += 1
                     if zap_row: telefones_db.append(zap_row)
                     if email_row: emails_db.append(email_row)
@@ -798,7 +798,7 @@ try:
 
             if not df_unificado.empty:
                 with st.expander("🔍 FILTRAR LISTA DE DISPARO", expanded=True):
-                    f_col1, f_col2, f_col3 = st.columns(3)
+                    f_col1, f_col2, f_col3, f_col4 = st.columns(4)
                     with f_col1:
                         opcoes_origem = [x for x in df_unificado['origem'].dropna().astype(str).unique() if x.strip() != ''] if 'origem' in df_unificado.columns else []
                         filtro_origem = st.multiselect("Filtrar por Origem", opcoes_origem)
@@ -808,10 +808,14 @@ try:
                     with f_col3:
                         opcoes_status = [x for x in df_unificado['status'].dropna().astype(str).unique() if x.strip() != ''] if 'status' in df_unificado.columns else []
                         filtro_status = st.multiselect("Filtrar por Status", opcoes_status)
+                    with f_col4:
+                        opcoes_bairro = [x for x in df_unificado['bairro'].dropna().astype(str).unique() if x.strip() != ''] if 'bairro' in df_unificado.columns else []
+                        filtro_bairro = st.multiselect("Filtrar por Bairro", opcoes_bairro)
                         
                     if filtro_origem: df_unificado = df_unificado[df_unificado['origem'].astype(str).isin(filtro_origem)]
                     if filtro_ramo: df_unificado = df_unificado[df_unificado['ramo'].astype(str).isin(filtro_ramo)]
                     if filtro_status: df_unificado = df_unificado[df_unificado['status'].astype(str).isin(filtro_status)]
+                    if filtro_bairro: df_unificado = df_unificado[df_unificado['bairro'].astype(str).isin(filtro_bairro)]
                 
             c1, c2 = st.columns([1, 1])
             with c1:
@@ -897,6 +901,10 @@ try:
                                 
                             time.sleep(random.randint(5, 15))
                             bar.progress((i+1)/len(alvos_finais))
+                        
+                        st.success("DISPARO FINALIZADO COM SUCESSO")
+                        time.sleep(2)
+                        st.rerun()
                 
                 elif metodo_envio == "WhatsApp Baileys API":
                     tracking = get_tracking_data(user_id)
@@ -941,6 +949,10 @@ try:
                         
                         time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
                         bar.progress((i+1)/len(alvos_finais))
+                        
+                    st.success("DISPARO FINALIZADO COM SUCESSO")
+                    time.sleep(2)
+                    st.rerun()
 
         with subtab_ext:
             st.markdown("### 📂 UPLOAD DE LISTA (EXCEL .xlsx)")
@@ -1113,6 +1125,10 @@ try:
                                     
                                     time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
                                     bar3.progress((i+1)/len(df_validos))
+                                
+                                st.success("DISPARO FINALIZADO COM SUCESSO")
+                                time.sleep(2)
+                                st.rerun()
 
                 except Exception as e:
                     st.error(f"ERRO AO LER EXCEL: {e}")
