@@ -915,7 +915,7 @@ try:
                             bar.progress((i+1)/len(alvos_finais))
                             
                             if i < len(alvos_finais) - 1:
-                                espera = random.randint(5, 15) if modo_lote != "Lote 50 em 4 Horas" else 288
+                                espera = random.randint(30, 90) if modo_lote != "Lote 50 em 4 Horas" else 288
                                 timer_ph = st.empty()
                                 for s in range(espera, 0, -1):
                                     timer_ph.info(f"Aguardando {s}s para o proximo envio")
@@ -1058,9 +1058,12 @@ try:
                                 
                                 for i, row in df_validos.iterrows():
                                     if i > 0:
-                                        wait = random.randint(5, 15)
-                                        log2.warning(f"⏳ ANTI-SPAM... {wait}s")
-                                        time.sleep(wait)
+                                        wait = random.randint(30, 90)
+                                        timer_ext = st.empty()
+                                        for s in range(wait, 0, -1):
+                                            timer_ext.warning(f"⏳ ANTI-SPAM... {s}s")
+                                            time.sleep(1)
+                                        timer_ext.empty()
                                     
                                     nome_l = row.get('nome', 'Parceiro')
                                     email_l = str(row['email']).strip()
