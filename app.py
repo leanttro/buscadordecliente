@@ -854,12 +854,13 @@ try:
                             return f"Empresa: {emp} | Nome: {nm} | {r.get('fonte_dados', '')}"
                         df_unificado['label'] = df_unificado.apply(make_label, axis=1)
                 
-                modo_lote = st.checkbox("⚡ Enviar Lote de 10 Automático (Status Novo)?", value=True)
-                if modo_lote:
+                modo_lote = st.radio("MODO DE SELECAO", ["Manual", "Lote 10 Rapido", "Lote 50 em 4 Horas"], horizontal=True)
+                if modo_lote != "Manual":
                     alvos_pre = []
                     if not df_unificado.empty and 'status' in df_unificado.columns:
                         df_novos = df_unificado[df_unificado['status'].astype(str).str.upper() == 'NOVO']
-                        alvos_pre = df_novos['label'].tolist()[:10]
+                        limite = 10 if modo_lote == "Lote 10 Rapido" else 50
+                        alvos_pre = df_novos['label'].tolist()[:limite]
                     alvos_finais = st.multiselect("ALVOS SELECIONADOS AUTOMATICAMENTE", alvos_pre, default=alvos_pre, disabled=True)
                 else:
                     alvos_finais = st.multiselect("SELECIONE OS ALVOS DO CRM", df_unificado['label'].tolist() if not df_unificado.empty else [])
@@ -911,8 +912,15 @@ try:
                             else:
                                 log.error(f"ERRO {email_real}")
                                 
-                            time.sleep(random.randint(5, 15))
                             bar.progress((i+1)/len(alvos_finais))
+                            
+                            if i < len(alvos_finais) - 1:
+                                espera = random.randint(5, 15) if modo_lote != "Lote 50 em 4 Horas" else 288
+                                timer_ph = st.empty()
+                                for s in range(espera, 0, -1):
+                                    timer_ph.info(f"Aguardando {s}s para o proximo envio")
+                                    time.sleep(1)
+                                timer_ph.empty()
                         
                         st.success("DISPARO FINALIZADO COM SUCESSO")
                         time.sleep(2)
@@ -959,8 +967,15 @@ try:
                             else: log.error("Erro na API do Baileys")
                         except: log.error("Falha de conexão com disparador")
                         
-                        time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
                         bar.progress((i+1)/len(alvos_finais))
+                        
+                        if i < len(alvos_finais) - 1:
+                            espera = random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)) if modo_lote != "Lote 50 em 4 Horas" else 288
+                            timer_ph = st.empty()
+                            for s in range(espera, 0, -1):
+                                timer_ph.info(f"Aguardando {s}s para o proximo envio")
+                                time.sleep(1)
+                            timer_ph.empty()
                         
                     st.success("DISPARO FINALIZADO COM SUCESSO")
                     time.sleep(2)
