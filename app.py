@@ -122,14 +122,18 @@ def get_tracking_data(user_id):
     file_path = get_tracking_file(user_id)
     if os.path.exists(file_path):
         with open(file_path, 'r') as f:
-            return json.load(f)
+            data = json.load(f)
+            if "manual_limit" not in data:
+                data["manual_limit"] = 30
+            return data
     else:
         data = {
             "start_date": str(date.today()),
             "last_run_date": str(date.today()),
             "sent_today": 0,
             "last_run_hour": str(datetime.now().strftime("%Y-%m-%d %H")),
-            "sent_this_hour": 0
+            "sent_this_hour": 0,
+            "manual_limit": 30
         }
         with open(file_path, 'w') as f:
             json.dump(data, f)
@@ -138,14 +142,6 @@ def get_tracking_data(user_id):
 def save_tracking_data(user_id, data):
     with open(get_tracking_file(user_id), 'w') as f:
         json.dump(data, f)
-
-def get_daily_limit(start_date_str):
-    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-    today = date.today()
-    days_passed = (today - start_date).days
-    weeks_passed = days_passed // 7
-    limit = 30 + (weeks_passed * 10)
-    return min(limit, 120)
 
 def inicializar_crm_usuario(token, user_id):
     table_name = get_user_table_name(user_id)
@@ -513,8 +509,8 @@ if "system_prompt_padrao" not in st.session_state:
     st.session_state.system_prompt_padrao = "ATUE COMO Head de Vendas. OBJETIVO Encontrar quem está COMPRANDO ou BUSCANDO serviços e ignorar quem está vendendo ou postagens gringas. TAREFAS 1 O texto deve estar em Português do Brasil. 2 Identifique se o autor ESTÁ BUSCANDO o serviço Score 80 a 100. 3 Se for alguém VENDENDO ou agência concorrente Score é ZERO. SAÍDA JSON OBRIGATÓRIA { autor Nome de quem busca score 0 a 100 resumo_post Resumo do que a pessoa precisa produto_recomendado Serviço exato argumento_venda Como abordar para vender rápido }"
 
 if "saudacoes" not in st.session_state: st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi", "Fala"]
-if "delay_min" not in st.session_state: st.session_state.delay_min = 300
-if "delay_max" not in st.session_state: st.session_state.delay_max = 400
+if "delay_min" not in st.session_state: st.session_state.delay_min = 60
+if "delay_max" not in st.session_state: st.session_state.delay_max = 200
 if "blacklist" not in st.session_state: st.session_state.blacklist = set()
 
 with st.sidebar:
@@ -878,7 +874,7 @@ try:
                     url_video_wpp = st.text_input("URL DO VÍDEO (Cloudinary ou MP4 direto)", key="vid_wpp_int")
                     st.info("O envio usa as travas de proteção da aba Configuração")
                     tracking = get_tracking_data(user_id)
-                    st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
+                    st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 30)}. Enviados {tracking['sent_today']}")
 
             if st.button("🚀 INICIAR DISPARO EM MASSA"):
                 bar = st.progress(0)
@@ -928,7 +924,7 @@ try:
                 
                 elif metodo_envio == "WhatsApp Baileys API":
                     tracking = get_tracking_data(user_id)
-                    daily_limit = get_daily_limit(tracking["start_date"])
+                    daily_limit = tracking.get("manual_limit", 30)
                     today_str = str(date.today())
                     current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
                     
@@ -970,7 +966,7 @@ try:
                         bar.progress((i+1)/len(alvos_finais))
                         
                         if i < len(alvos_finais) - 1:
-                            espera = random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)) if modo_lote != "Lote 50 em 4 Horas" else 288
+                            espera = random.randint(st.session_state.delay_min, st.session_state.delay_max) if modo_lote != "Lote 50 em 4 Horas" else 288
                             timer_ph = st.empty()
                             for s in range(espera, 0, -1):
                                 timer_ph.info(f"Aguardando {s}s para o proximo envio")
@@ -1099,7 +1095,7 @@ try:
                         file_anexo_wpp_ext = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_ext_up")
                         url_video_ext = st.text_input("URL DO VÍDEO (Cloudinary ou MP4 direto)", key="vid_wpp_ext")
                         tracking = get_tracking_data(user_id)
-                        st.caption(f"Limite WhatsApp Hoje {get_daily_limit(tracking['start_date'])}. Enviados {tracking['sent_today']}")
+                        st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 30)}. Enviados {tracking['sent_today']}")
                         
                         if st.button("🚀 DISPARAR WHATSAPP PARA LISTA EXTERNA"):
                             if 'telefone' not in df_ext.columns and 'whatsapp' not in df_ext.columns:
@@ -1111,7 +1107,7 @@ try:
                                 bar3 = st.progress(0)
                                 log3 = st.empty()
                                 
-                                daily_limit = get_daily_limit(tracking["start_date"])
+                                daily_limit = tracking.get("manual_limit", 30)
                                 today_str = str(date.today())
                                 current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
                                 
@@ -1153,7 +1149,12 @@ try:
                                     except:
                                         log3.error("Falha de conexão com disparador")
                                     
-                                    time.sleep(random.randint(max(300, st.session_state.delay_min), max(400, st.session_state.delay_max)))
+                                    espera_ext = random.randint(st.session_state.delay_min, st.session_state.delay_max)
+                                    timer_ext_wpp = st.empty()
+                                    for s in range(espera_ext, 0, -1):
+                                        timer_ext_wpp.info(f"Aguardando {s}s para o proximo envio")
+                                        time.sleep(1)
+                                    timer_ext_wpp.empty()
                                     bar3.progress((i+1)/len(df_validos))
                                 
                                 st.success("DISPARO FINALIZADO COM SUCESSO")
@@ -1191,15 +1192,22 @@ try:
         st.divider()
 
         st.markdown("### ⚙️ PROTEÇÃO DO WHATSAPP E LIMITES")
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.session_state.delay_min = st.number_input("Tempo Minimo Segundos Travado em 300", min_value=300, max_value=600, value=max(300, st.session_state.delay_min))
+            st.session_state.delay_min = st.number_input("Tempo Minimo Segundos", min_value=10, max_value=600, value=st.session_state.get('delay_min', 60))
         with col2:
-            st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=350, max_value=800, value=max(350, st.session_state.delay_max))
+            st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=10, max_value=800, value=st.session_state.get('delay_max', 200))
+        with col3:
+            tracking = get_tracking_data(user_id)
+            novo_limite = st.number_input("Limite Diario Manual (Max 30)", min_value=1, max_value=30, value=tracking.get("manual_limit", 30))
+            if novo_limite != tracking.get("manual_limit", 30):
+                tracking["manual_limit"] = novo_limite
+                save_tracking_data(user_id, tracking)
+                st.success("Limite atualizado")
         
         st.divider()
         tracking = get_tracking_data(user_id)
-        daily_lim = get_daily_limit(tracking["start_date"])
+        daily_lim = tracking.get("manual_limit", 30)
         col_a, col_b, col_c = st.columns(3)
         col_a.metric("Limite Seguro de Hoje", daily_lim)
         col_b.metric("Disparos Hoje", tracking["sent_today"])
@@ -1213,7 +1221,7 @@ try:
             os.remove(get_tracking_file(user_id))
             st.rerun()
 
-except Exception:
+except Exception as e:
     st.markdown("<br><br><br><h2 style='text-align: center; color: var(--red); padding: 20px;'>A TELA PRECISA SER ATUALIZADA</h2>", unsafe_allow_html=True)
     if st.button("🔄 CLIQUE AQUI PARA REINICIAR", type="primary", use_container_width=True):
         for key in list(st.session_state.keys()):
