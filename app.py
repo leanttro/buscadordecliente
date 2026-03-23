@@ -124,7 +124,7 @@ def get_tracking_data(user_id):
         with open(file_path, 'r') as f:
             data = json.load(f)
             if "manual_limit" not in data:
-                data["manual_limit"] = 30
+                data["manual_limit"] = 100
             return data
     else:
         data = {
@@ -133,7 +133,7 @@ def get_tracking_data(user_id):
             "sent_today": 0,
             "last_run_hour": str(datetime.now().strftime("%Y-%m-%d %H")),
             "sent_this_hour": 0,
-            "manual_limit": 30
+            "manual_limit": 100
         }
         with open(file_path, 'w') as f:
             json.dump(data, f)
@@ -874,7 +874,7 @@ try:
                     url_video_wpp = st.text_input("URL DO VÍDEO (Cloudinary ou MP4 direto)", key="vid_wpp_int")
                     st.info("O envio usa as travas de proteção da aba Configuração")
                     tracking = get_tracking_data(user_id)
-                    st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 30)}. Enviados {tracking['sent_today']}")
+                    st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 100)}. Enviados {tracking['sent_today']}")
 
             if st.button("🚀 INICIAR DISPARO EM MASSA"):
                 bar = st.progress(0)
@@ -924,7 +924,7 @@ try:
                 
                 elif metodo_envio == "WhatsApp Baileys API":
                     tracking = get_tracking_data(user_id)
-                    daily_limit = tracking.get("manual_limit", 30)
+                    daily_limit = tracking.get("manual_limit", 100)
                     today_str = str(date.today())
                     current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
                     
@@ -1095,7 +1095,7 @@ try:
                         file_anexo_wpp_ext = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_ext_up")
                         url_video_ext = st.text_input("URL DO VÍDEO (Cloudinary ou MP4 direto)", key="vid_wpp_ext")
                         tracking = get_tracking_data(user_id)
-                        st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 30)}. Enviados {tracking['sent_today']}")
+                        st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 100)}. Enviados {tracking['sent_today']}")
                         
                         if st.button("🚀 DISPARAR WHATSAPP PARA LISTA EXTERNA"):
                             if 'telefone' not in df_ext.columns and 'whatsapp' not in df_ext.columns:
@@ -1107,7 +1107,7 @@ try:
                                 bar3 = st.progress(0)
                                 log3 = st.empty()
                                 
-                                daily_limit = tracking.get("manual_limit", 30)
+                                daily_limit = tracking.get("manual_limit", 100)
                                 today_str = str(date.today())
                                 current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
                                 
@@ -1199,15 +1199,15 @@ try:
             st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=10, max_value=800, value=st.session_state.get('delay_max', 200))
         with col3:
             tracking = get_tracking_data(user_id)
-            novo_limite = st.number_input("Limite Diario Manual (Max 30)", min_value=1, max_value=30, value=tracking.get("manual_limit", 30))
-            if novo_limite != tracking.get("manual_limit", 30):
+            novo_limite = st.number_input("Limite Diario Manual (Max 100)", min_value=1, max_value=100, value=tracking.get("manual_limit", 100))
+            if novo_limite != tracking.get("manual_limit", 100):
                 tracking["manual_limit"] = novo_limite
                 save_tracking_data(user_id, tracking)
                 st.success("Limite atualizado")
         
         st.divider()
         tracking = get_tracking_data(user_id)
-        daily_lim = tracking.get("manual_limit", 30)
+        daily_lim = tracking.get("manual_limit", 100)
         col_a, col_b, col_c = st.columns(3)
         col_a.metric("Limite Seguro de Hoje", daily_lim)
         col_b.metric("Disparos Hoje", tracking["sent_today"])
