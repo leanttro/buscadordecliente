@@ -20,7 +20,7 @@ import concurrent.futures
 from io import BytesIO
 import base64
 
-st.set_page_config(page_title="LEANTTRO CRM & SNIPER", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="LEANTTRO SNIPER", layout="wide", page_icon="⚡")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 os.environ["STREAMLIT_CLIENT_SHOW_ERROR_DETAILS"] = "false"
 
