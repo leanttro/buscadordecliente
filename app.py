@@ -124,7 +124,7 @@ def get_tracking_data(user_id):
         with open(file_path, 'r') as f:
             data = json.load(f)
             if "manual_limit" not in data:
-                data["manual_limit"] = 100
+                data["manual_limit"] = 50
             return data
     else:
         data = {
@@ -133,7 +133,7 @@ def get_tracking_data(user_id):
             "sent_today": 0,
             "last_run_hour": str(datetime.now().strftime("%Y-%m-%d %H")),
             "sent_this_hour": 0,
-            "manual_limit": 100
+            "manual_limit": 50
         }
         with open(file_path, 'w') as f:
             json.dump(data, f)
@@ -509,8 +509,8 @@ if "system_prompt_padrao" not in st.session_state:
     st.session_state.system_prompt_padrao = "ATUE COMO Head de Vendas. OBJETIVO Encontrar quem está COMPRANDO ou BUSCANDO serviços e ignorar quem está vendendo ou postagens gringas. TAREFAS 1 O texto deve estar em Português do Brasil. 2 Identifique se o autor ESTÁ BUSCANDO o serviço Score 80 a 100. 3 Se for alguém VENDENDO ou agência concorrente Score é ZERO. SAÍDA JSON OBRIGATÓRIA { autor Nome de quem busca score 0 a 100 resumo_post Resumo do que a pessoa precisa produto_recomendado Serviço exato argumento_venda Como abordar para vender rápido }"
 
 if "saudacoes" not in st.session_state: st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi", "Fala"]
-if "delay_min" not in st.session_state: st.session_state.delay_min = 60
-if "delay_max" not in st.session_state: st.session_state.delay_max = 200
+if "delay_min" not in st.session_state: st.session_state.delay_min = 300
+if "delay_max" not in st.session_state: st.session_state.delay_max = 600
 if "blacklist" not in st.session_state: st.session_state.blacklist = set()
 
 with st.sidebar:
@@ -874,7 +874,7 @@ try:
                     url_video_wpp = st.text_input("URL DO VÍDEO (Cloudinary ou MP4 direto)", key="vid_wpp_int")
                     st.info("O envio usa as travas de proteção da aba Configuração")
                     tracking = get_tracking_data(user_id)
-                    st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 100)}. Enviados {tracking['sent_today']}")
+                    st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 50)}. Enviados {tracking['sent_today']}")
 
             if st.button("🚀 INICIAR DISPARO EM MASSA"):
                 bar = st.progress(0)
@@ -924,7 +924,7 @@ try:
                 
                 elif metodo_envio == "WhatsApp Baileys API":
                     tracking = get_tracking_data(user_id)
-                    daily_limit = tracking.get("manual_limit", 100)
+                    daily_limit = tracking.get("manual_limit", 50)
                     today_str = str(date.today())
                     current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
                     
@@ -1095,7 +1095,7 @@ try:
                         file_anexo_wpp_ext = st.file_uploader("ANEXAR IMAGEM (Opcional - WhatsApp)", type=["png", "jpg", "jpeg"], key="img_wpp_ext_up")
                         url_video_ext = st.text_input("URL DO VÍDEO (Cloudinary ou MP4 direto)", key="vid_wpp_ext")
                         tracking = get_tracking_data(user_id)
-                        st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 100)}. Enviados {tracking['sent_today']}")
+                        st.caption(f"Limite WhatsApp Hoje {tracking.get('manual_limit', 50)}. Enviados {tracking['sent_today']}")
                         
                         if st.button("🚀 DISPARAR WHATSAPP PARA LISTA EXTERNA"):
                             if 'telefone' not in df_ext.columns and 'whatsapp' not in df_ext.columns:
@@ -1107,7 +1107,7 @@ try:
                                 bar3 = st.progress(0)
                                 log3 = st.empty()
                                 
-                                daily_limit = tracking.get("manual_limit", 100)
+                                daily_limit = tracking.get("manual_limit", 50)
                                 today_str = str(date.today())
                                 current_hour_str = str(datetime.now().strftime("%Y-%m-%d %H"))
                                 
@@ -1194,20 +1194,20 @@ try:
         st.markdown("### ⚙️ PROTEÇÃO DO WHATSAPP E LIMITES")
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.session_state.delay_min = st.number_input("Tempo Minimo Segundos", min_value=10, max_value=600, value=st.session_state.get('delay_min', 60))
+            st.session_state.delay_min = st.number_input("Tempo Minimo Segundos", min_value=10, max_value=600, value=st.session_state.get('delay_min', 300))
         with col2:
-            st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=10, max_value=800, value=st.session_state.get('delay_max', 200))
+            st.session_state.delay_max = st.number_input("Tempo Maximo Segundos", min_value=10, max_value=800, value=st.session_state.get('delay_max', 600))
         with col3:
             tracking = get_tracking_data(user_id)
-            novo_limite = st.number_input("Limite Diario Manual (Max 100)", min_value=1, max_value=100, value=tracking.get("manual_limit", 100))
-            if novo_limite != tracking.get("manual_limit", 100):
+            novo_limite = st.number_input("Limite Diario Manual (Max 50)", min_value=1, max_value=50, value=tracking.get("manual_limit", 50))
+            if novo_limite != tracking.get("manual_limit", 50):
                 tracking["manual_limit"] = novo_limite
                 save_tracking_data(user_id, tracking)
                 st.success("Limite atualizado")
         
         st.divider()
         tracking = get_tracking_data(user_id)
-        daily_lim = tracking.get("manual_limit", 100)
+        daily_lim = tracking.get("manual_limit", 50)
         col_a, col_b, col_c = st.columns(3)
         col_a.metric("Limite Seguro de Hoje", daily_lim)
         col_b.metric("Disparos Hoje", tracking["sent_today"])
