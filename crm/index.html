@@ -2066,37 +2066,48 @@
             }
         }
 
-        function baixarPDF(tipo) {
-            const htmlContent = gerarHTMLOrcamento(tipo);
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = htmlContent;
-            
-            wrapper.style.position = 'absolute';
-            wrapper.style.left = '-9999px';
-            wrapper.style.top = '0';
-            wrapper.style.width = '800px'; 
-            wrapper.style.backgroundColor = '#050505';
-            document.body.appendChild(wrapper);
-            
-            const select = document.getElementById('orcCliente');
-            let nomeArquivo = 'Cliente';
-            if (select.value === 'avulso') {
-                nomeArquivo = document.getElementById('orcNomeAvulso').value || 'Avulso';
-            } else if (select.value) {
-                const c = clientes.find(x => x.id == select.value);
-                if (c) nomeArquivo = c.nome && c.nome !== '-' ? c.nome : (c.empresa || 'Cliente');
-            }
-
-            html2pdf().set({
-                margin: 0,
-                filename: `${tipo}_${nomeArquivo.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
-                image: { type: 'jpeg', quality: 1.0 },
-                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#050505', windowWidth: 800 },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            }).from(wrapper).save().then(() => {
-                document.body.removeChild(wrapper);
-            });
-        }
+       function baixarPDF(tipo) {
+    const htmlContent = gerarHTMLOrcamento(tipo);
+    
+    // Cria um elemento temporário para a captura
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    tempDiv.style.position = 'fixed';
+    tempDiv.style.left = '0';
+    tempDiv.style.top = '0';
+    tempDiv.style.width = '800px';
+    tempDiv.style.zIndex = '-1';
+    tempDiv.style.opacity = '0';
+    tempDiv.style.pointerEvents = 'none';
+    tempDiv.style.backgroundColor = '#050505';
+    document.body.appendChild(tempDiv);
+    
+    // Define o nome do arquivo
+    const select = document.getElementById('orcCliente');
+    let nomeArquivo = 'Cliente';
+    if (select.value === 'avulso') {
+        nomeArquivo = document.getElementById('orcNomeAvulso').value || 'Avulso';
+    } else if (select.value) {
+        const c = clientes.find(x => x.id == select.value);
+        if (c) nomeArquivo = c.nome && c.nome !== '-' ? c.nome : (c.empresa || 'Cliente');
+    }
+    
+    // Gera o PDF
+    html2pdf().set({
+        margin: 0,
+        filename: `${tipo}_${nomeArquivo.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
+        image: { type: 'jpeg', quality: 1.0 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#050505', windowWidth: 800 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(tempDiv).save().then(() => {
+        // Remove o elemento temporário após o download
+        document.body.removeChild(tempDiv);
+    }).catch(err => {
+        console.error('Erro ao gerar PDF:', err);
+        document.body.removeChild(tempDiv);
+        showMessage('Falha na geração do PDF. Verifique o console.', 'error');
+    });
+}
 
         function carregarHistoricoOrcamentos() {
             const listaDiv = document.getElementById('lista-orcamentos');
