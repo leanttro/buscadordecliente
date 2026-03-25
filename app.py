@@ -615,6 +615,8 @@ try:
             telefones_db = df['telefone'].dropna().astype(str).tolist() if not df.empty and 'telefone' in df.columns else []
             emails_db = df['email'].dropna().astype(str).tolist() if not df.empty and 'email' in df.columns else []
             
+            duplicados_ocultos = 0
+            
             for i, bairro in enumerate(lista_bairros):
                 if fonte_alvo == "Google Maps":
                     query_maps = f'{nicho} em {bairro} {cidade}'
@@ -629,22 +631,30 @@ try:
                         endereco = r.get('address', '')
                         site = r.get('website', '')
                         
-                        if zap_oficial:
+                        exists_db = False
+                        exists_local = False
+                        exists_new = False
+                        
+                        if not zap_oficial:
+                            zap_oficial = "Sem Numero"
+                        else:
+                            exists_db = zap_oficial in telefones_db
                             exists_local = any(l['Whatsapp'] == zap_oficial for l in st.session_state["leads_isolados"])
                             exists_new = any(l['Whatsapp'] == zap_oficial for l in novos_leads)
-                            exists_db = zap_oficial in telefones_db
                             
-                            if not exists_local and not exists_new and not exists_db:
-                                novos_leads.append({
-                                    "Empresa": limpar_nome(nome_empresa), 
-                                    "Nicho": nicho, 
-                                    "Bairro": bairro, 
-                                    "Endereço Real": endereco,
-                                    "Whatsapp": zap_oficial, 
-                                    "Email": "", 
-                                    "Fonte": "Google Maps", 
-                                    "Link": site
-                                })
+                        if exists_db or exists_local or exists_new:
+                            duplicados_ocultos += 1
+                        else:
+                            novos_leads.append({
+                                "Empresa": limpar_nome(nome_empresa), 
+                                "Nicho": nicho, 
+                                "Bairro": bairro, 
+                                "Endereço Real": endereco,
+                                "Whatsapp": zap_oficial, 
+                                "Email": "", 
+                                "Fonte": "Google Maps", 
+                                "Link": site
+                            })
                 else:
                     query_base = f'{prefixo_fonte} "{nicho}" "{bairro}" "{cidade}"'
                     for q in [f'{query_base} "whatsapp"', f'{query_base} "@gmail.com" OR "@hotmail.com"']:
@@ -654,21 +664,47 @@ try:
                             zap = extrair_whatsapp(texto_completo)
                             email = extrair_email(texto_completo)
                             
-                            if zap is None: zap = ""
-                            if email is None: email = ""
+                            exists_db = False
+                            exists_local = False
+                            exists_new = False
                             
-                            if zap or email:
-                                exists_local = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in st.session_state["leads_isolados"])
-                                exists_new = any((l['Whatsapp'] == zap and zap) or (l['Email'] == email and email) for l in novos_leads)
-                                exists_db = (zap and zap in telefones_db) or (email and email in emails_db)
-                                
-                                if not exists_local and not exists_new and not exists_db:
-                                    novos_leads.append({"Empresa": limpar_nome(r.get('title', '')), "Nicho": nicho, "Bairro": bairro, "Endereço Real": "N/A", "Whatsapp": zap, "Email": email, "Fonte": fonte_alvo, "Link": r.get('link')})
+                            if not zap and not email:
+                                zap = "Sem Numero"
+                                email = ""
+                            else:
+                                if zap:
+                                    exists_db = exists_db or zap in telefones_db
+                                    exists_local = exists_local or any(l['Whatsapp'] == zap for l in st.session_state["leads_isolados"])
+                                    exists_new = exists_new or any(l['Whatsapp'] == zap for l in novos_leads)
+                                if email:
+                                    exists_db = exists_db or email in emails_db
+                                    exists_local = exists_local or any(l['Email'] == email for l in st.session_state["leads_isolados"])
+                                    exists_new = exists_new or any(l['Email'] == email for l in novos_leads)
+                            
+                            if exists_db or exists_local or exists_new:
+                                duplicados_ocultos += 1
+                            else:
+                                novos_leads.append({
+                                    "Empresa": limpar_nome(r.get('title', '')), 
+                                    "Nicho": nicho, 
+                                    "Bairro": bairro, 
+                                    "Endereço Real": "N/A", 
+                                    "Whatsapp": zap if zap else "Sem Numero", 
+                                    "Email": email if email else "", 
+                                    "Fonte": fonte_alvo, 
+                                    "Link": r.get('link')
+                                })
                 bar.progress((i + 1) / len(lista_bairros))
                 time.sleep(0.5) 
+                
+            if duplicados_ocultos > 0:
+                st.info(f"Ocultamos {duplicados_ocultos} contatos que ja estao no seu CRM para evitar duplicidade")
+                
             if novos_leads:
                 st.session_state["leads_isolados"].extend(novos_leads)
-                st.success(f"{len(novos_leads)} CONTATOS INÉDITOS ENCONTRADOS")
+                st.success(f"{len(novos_leads)} CONTATOS INEDITOS ENCONTRADOS")
+            elif duplicados_ocultos == 0:
+                st.warning("Nenhum contato encontrado")
         
         if st.session_state["leads_isolados"]:
             df_mine = pd.DataFrame(st.session_state["leads_isolados"])
@@ -689,6 +725,9 @@ try:
                 for _, row in df_mine.iterrows():
                     zap_row = str(row["Whatsapp"]).strip()
                     email_row = str(row["Email"]).strip()
+                    
+                    if zap_row == "Sem Numero":
+                        zap_row = ""
                     
                     is_dup_zap = zap_row and zap_row in telefones_db
                     is_dup_email = email_row and email_row in emails_db
