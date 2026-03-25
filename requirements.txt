@@ -4,3 +4,5 @@ duckduckgo-search
 googlesearch-python
 openpyxl
 pandas
+fpdf2
+requests
