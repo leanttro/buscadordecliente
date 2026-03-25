@@ -400,13 +400,9 @@ def search_google_maps_serper(query):
     headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
     try:
         response = requests.request("POST", url, headers=headers, data=json.dumps(payload_dict))
-        if response.status_code != 200:
-            st.error(f"Erro Serper API Status {response.status_code} Detalhes {response.text}")
-            return []
+        if response.status_code != 200: return []
         return response.json().get("places", [])
-    except Exception as e:
-        st.error(f"Falha de API {e}")
-        return []
+    except: return []
 
 def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
     if not groq_key: return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
@@ -627,7 +623,12 @@ try:
 
                     for r in resultados_maps:
                         nome_empresa = r.get('title', '')
-                        zap_oficial = extrair_whatsapp(r.get('phoneNumber', ''))
+                        zap_raw = r.get('phoneNumber', '')
+                        zap_oficial = None
+                        if zap_raw:
+                            nums = re.sub(r'\D', '', str(zap_raw))
+                            if len(nums) >= 10:
+                                zap_oficial = f"55{nums}" if not nums.startswith('55') else nums
                         endereco = r.get('address', '')
                         site = r.get('website', '')
                         
