@@ -19,6 +19,7 @@ import re
 import concurrent.futures
 from io import BytesIO
 import base64
+from fpdf import FPDF
 
 st.set_page_config(page_title="LEANTTRO CRM & SNIPER", layout="wide", page_icon="⚡")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -102,6 +103,44 @@ if GROQ_API_KEY:
         groq_client = Groq(api_key=GROQ_API_KEY)
     except:
         pass
+
+def gerar_pdf_servidor(dados):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_fill_color(5, 5, 5)
+    pdf.rect(0, 0, 210, 297, 'F')
+    
+    # Header logic
+    pdf.set_text_color(124, 58, 237)
+    pdf.set_font("Arial", 'B', 20)
+    pdf.cell(0, 15, "LEANTTRO | PROPOSTA", ln=True, align='C')
+    
+    pdf.set_draw_color(124, 58, 237)
+    pdf.line(10, 30, 200, 30)
+    
+    pdf.ln(10)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, f"CLIENTE: {dados.get('cliente', 'N/A')}", ln=True)
+    pdf.cell(0, 10, f"CONTATO: {dados.get('contato', 'N/A')}", ln=True)
+    pdf.cell(0, 10, f"DATA: {datetime.now().strftime('%d/%m/%Y')}", ln=True)
+    
+    pdf.ln(5)
+    pdf.set_text_color(0, 229, 255)
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "DETALHAMENTO DO PROJETO", ln=True)
+    
+    pdf.set_text_color(200, 200, 200)
+    pdf.set_font("Arial", '', 11)
+    pdf.multi_cell(0, 7, dados.get('escopo', 'Sem escopo detalhado.'))
+    
+    pdf.ln(10)
+    pdf.set_fill_color(20, 20, 20)
+    pdf.set_text_color(0, 229, 255)
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 15, f"INVESTIMENTO TOTAL: {dados.get('total', 'R$ 0,00')}", ln=True, align='R', fill=True)
+    
+    return pdf.output(dest='S').encode('latin-1')
 
 def render_header():
     st.markdown("""
@@ -506,7 +545,7 @@ if 'smtp_loaded' not in st.session_state:
     st.session_state['smtp_loaded'] = True
 
 if "system_prompt_padrao" not in st.session_state:
-    st.session_state.system_prompt_padrao = "ATUE COMO Head de Vendas. OBJETIVO Encontrar quem está COMPRANDO ou BUSCANDO serviços e ignorar quem está vendendo ou postagens gringas. TAREFAS 1 O texto deve estar em Português do Brasil. 2 Identifique se o autor ESTÁ BUSCANDO o serviço Score 80 a 100. 3 Se for alguém VENDENDO ou agência concorrente Score é ZERO. SAÍDA JSON OBRIGATÓRIA { autor Nome de quem busca score 0 a 100 resumo_post Resumo do que a pessoa precisa produto_recomendado Serviço exato argumento_venda Como abordar para vender rápido }"
+    st.session_state.system_prompt_padrao = "ATUE COMO Head de Vendas. OBJETIVO Encontrar quem está COMPRANDO ou BUSCANDO serviços e ignorar quem está vendendo ou postagens gringas. TAREFAS 1 O texto deve estar em Português do Brasil. 2 Identifique se o autor ESTÁ BUSCANDO o serviço Score 80 a 100. 3 Se for alguém VENDENDO ou agência concorrente Score é ZERO. SAÍDA JSON OBRIGATÓRIA { autor Nome de quem busca score 0 a 100 resumo_post Resumo do que a pessoa precisa produto_recommended Serviço exato argumento_venda Como abordar para vender rápido }"
 
 if "saudacoes" not in st.session_state: st.session_state.saudacoes = ["Opa", "Olá", "Tudo bem", "Oi", "Fala"]
 if "delay_min" not in st.session_state: st.session_state.delay_min = 300
@@ -585,7 +624,7 @@ try:
                         autor = analise.get('autor', 'Desconhecido')
                         css_class = "score-hot" if score >= 80 else "score-warm"
                         
-                        st.markdown(f'<div class="lead-card {css_class}"><div><span style="color:var(--blue); font-weight:bold;">SCORE {score}</span> <span class="tag-nicho">Autor {autor}</span></div><div style="margin-top:10px;"><a href="{p["link"]}" target="_blank" class="lead-title">{p["titulo"]}</a></div><div class="recommendation-box"><div style="color:var(--text-main); font-weight:bold;">OFERTAR {analise.get("produto_recomendado", "N/A").upper()}</div><div class="rec-text">{analise.get("resumo_post", "")}</div></div></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="lead-card {css_class}"><div><span style="color:var(--blue); font-weight:bold;">SCORE {score}</span> <span class="tag-nicho">Autor {autor}</span></div><div style="margin-top:10px;"><a href="{p["link"]}" target="_blank" class="lead-title">{p["titulo"]}</a></div><div class="recommendation-box"><div style="color:var(--text-main); font-weight:bold;">OFERTAR {analise.get("produto_recommended", "N/A").upper()}</div><div class="rec-text">{analise.get("resumo_post", "")}</div></div></div>', unsafe_allow_html=True)
                         if st.button(f"Salvar {autor} no CRM", key=f"save_{p['link']}"):
                             salvar_lead_crm(token, user_id, {"nome": autor, "origem": "Radar", "url": p["link"], "obs": analise.get("resumo_post", "")})
                             st.success("Salvo no CRM")
@@ -813,7 +852,7 @@ try:
         
         if sel_cli != "Selecione" and not df_ativo.empty:
             dados_cli = df_ativo[df_ativo['nome'] == sel_cli].iloc[0]
-            act_c1, act_c2 = st.columns(2)
+            act_c1, act_c2, act_c3 = st.columns(3)
             with act_c1:
                 st.markdown("#### WHATSAPP")
                 if st.button("GERAR TEXTO ZAP IA"): st.session_state['ai_zap_text'] = gerar_whatsapp_ia(st.session_state.get('ctx', {}), dados_cli); st.rerun()
@@ -825,6 +864,22 @@ try:
                 if st.button("GERAR TEXTO COM IA"):
                     assunto_ia, corpo_ia = gerar_copy_ia(st.session_state.get('ctx', {}), dados_cli)
                     st.link_button("ABRIR NO GMAIL", f"https://mail.google.com/mail/?view=cm&fs=1&to={dados_cli.get('email', '')}&su={urllib.parse.quote(assunto_ia)}&body={urllib.parse.quote(corpo_ia.replace('{nome}', dados_cli.get('nome', '')))}", width='stretch')
+            with act_c3:
+                st.markdown("#### PDF PROPOSTA")
+                v_hora = st.number_input("Valor Hora", value=150.0)
+                h_mes = st.number_input("Horas/Mes", value=20)
+                m_contrato = st.number_input("Meses", value=6)
+                total_proj = v_hora * h_mes * m_contrato
+                
+                pdf_data = {
+                    "cliente": sel_cli,
+                    "contato": dados_cli.get('telefone', '') or dados_cli.get('email', ''),
+                    "escopo": st.session_state.get('ai_zap_text', 'Serviços de Desenvolvimento e Assessoria Leanttro.'),
+                    "total": f"R$ {total_proj:,.2f}"
+                }
+                
+                pdf_bytes = gerar_pdf_servidor(pdf_data)
+                st.download_button(label="📥 BAIXAR PDF", data=pdf_bytes, file_name=f"Proposta_{sel_cli.replace(' ', '_')}.pdf", mime="application/pdf")
 
     with tab4:
         st.markdown("### DISPARO EM MASSA EMAIL E WHATSAPP")
