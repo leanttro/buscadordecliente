@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         /* ==========================================
            NOVO VISUAL LEANTTRO (DARK TECH MODE)
@@ -277,10 +278,65 @@
             <button class="tab-btn" onclick="showTab('vendas')">💰 Receita</button>
             <button class="tab-btn" onclick="showTab('produtos')">📦 Catálogo</button>
             <button class="tab-btn" onclick="showTab('clientes')">👥 Base de Leads</button>
+            <button class="tab-btn" onclick="showTab('orcamentos')">📝 Propostas</button>
             <button class="tab-btn" onclick="showTab('estoque')">📦 Estoque</button>
             <button class="tab-btn" onclick="showTab('dicas')">💡 Insights</button>
             <button class="tab-btn" onclick="showTab('configuracoes')">⚙️ Setup</button>
         </nav>
+
+        <div id="orcamentos" class="tab-content">
+            <div class="card">
+                <h2>📝 Propostas e Planejamento</h2>
+                <div class="form-grid">
+                    <div class="form-section">
+                        <h3>Configurar Escopo</h3>
+                        <div class="form-group">
+                            <label for="orcCliente">Cliente Alvo</label>
+                            <div class="input-with-icon">
+                                <span class="input-icon">👥</span>
+                                <select id="orcCliente"></select>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="orcValorHora">Valor da Hora (R$)</label>
+                                <input type="number" id="orcValorHora" step="0.01" class="crm-input" placeholder="Ex: 150.00" oninput="calcularPreviaOrcamento()">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="orcHorasMes">Horas por Mês</label>
+                                <input type="number" id="orcHorasMes" class="crm-input" placeholder="Ex: 20" oninput="calcularPreviaOrcamento()">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="orcMeses">Meses de Contrato</label>
+                                <input type="number" id="orcMeses" class="crm-input" placeholder="Ex: 6" oninput="calcularPreviaOrcamento()">
+                            </div>
+                        </div>
+                        <div class="form-group mt-3">
+                            <label for="orcEscopo">Planejamento Estratégico (Atividades e Entregáveis)</label>
+                            <textarea id="orcEscopo" rows="6" class="crm-input" placeholder="Detalhe aqui o que será feito com as horas contratadas..."></textarea>
+                        </div>
+
+                        <div style="background: rgba(0, 229, 255, 0.05); border: 1px solid var(--color-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+                            <span style="color: var(--color-text-light); font-size: 0.9rem; text-transform: uppercase;">Valor Total Projetado</span><br>
+                            <span id="orcTotalPrevia" style="color: var(--color-secondary); font-size: 2rem; font-family: 'Archivo Black', sans-serif;">R$ 0,00</span>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn" style="flex: 1; justify-content: center;" onclick="salvarOrcamento()">💾 Gravar no Banco</button>
+                            <button class="btn btn-secondary" style="flex: 1; justify-content: center; background: rgba(0, 229, 255, 0.1); border-color: var(--color-secondary); color: var(--color-secondary);" onclick="baixarPDF('orcamento')">📄 Baixar Orçamento</button>
+                            <button class="btn btn-secondary" style="flex: 1; justify-content: center; background: rgba(124, 58, 237, 0.1); border-color: var(--color-primary); color: #b388ff;" onclick="baixarPDF('planejamento')">📊 Baixar Planejamento</button>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Histórico de Propostas Salvas</h3>
+                        <div id="lista-orcamentos" class="item-list">
+                            <p class="empty-state">Nenhum orçamento salvo no banco.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div id="calculadora" class="tab-content">
             <div class="card">
@@ -899,11 +955,12 @@
         let clientes = [];
         let custosFixos = [];
         let custosVariaveis = [];
+        let orcamentos_db = [];
         let estoque = {}; 
         let memoryData = {};
         let currentUser = null; 
         let salesChart = null; 
-        let currentContactId = null; // Usado pelo modal de contato
+        let currentContactId = null;
 
         function getUserCrmTable() {
             if (!currentUser || !currentUser.id) return 'mt_clientes'; 
@@ -948,6 +1005,7 @@
             if (tabId === 'produtos') renderizarProdutos();
             else if (tabId === 'vendas') { renderizarVendas(); carregarClientesNaVenda(); carregarProdutosNaVenda(); }
             else if (tabId === 'clientes') renderizarClientes();
+            else if (tabId === 'orcamentos') { carregarClientesNoOrcamento(); carregarHistoricoOrcamentos(); }
             else if (tabId === 'estoque') { renderizarEstoque(); carregarProdutosNoEstoque(); }
             else if (tabId === 'dashboard') atualizarDashboard();
             else if (tabId === 'calculadora') { loadCustos(); loadProductionData(); setupProductionCalculation(); updateCostPreviews(); document.getElementById('precoPorQuantidadeSection').classList.remove('expanded'); }
@@ -1088,6 +1146,9 @@
             vendas = (vendRes?.data || []).map(v => ({
                 id: v.id, clienteId: v.cliente_id, clienteNome: v.cliente_nome, data: v.data, total: v.total, produtos: v.produtos || []
             }));
+
+            const orcRes = await apiFetch('/items/mt_orcamentos');
+            orcamentos_db = (orcRes?.data || []);
 
             renderizarProdutos();
             renderizarVendas();
@@ -1579,6 +1640,7 @@
                 // Limpa campos
                 ['clienteNome','clienteEmpresa','clienteEmail','clienteTelefone','clienteOrigem','clienteUrl','clienteObs'].forEach(id => document.getElementById(id).value='');
                 carregarClientesNaVenda();
+                carregarClientesNoOrcamento();
             }
         }
 
@@ -1590,7 +1652,7 @@
                 clientes = clientes.filter(c => c.id !== id);
                 showMessage("Registro deletado com sucesso.", "info");
                 atualizarFiltroOrigem();
-                renderizarClientes(); carregarClientesNaVenda();
+                renderizarClientes(); carregarClientesNaVenda(); carregarClientesNoOrcamento();
             }
         }
 
@@ -1656,6 +1718,7 @@
                 atualizarFiltroOrigem();
                 renderizarClientes();
                 carregarClientesNaVenda();
+                carregarClientesNoOrcamento();
             }
         }
 
@@ -1820,6 +1883,123 @@
                 select.appendChild(opt);
             });
             select.value = current;
+        }
+
+        function carregarClientesNoOrcamento() {
+            const select = document.getElementById('orcCliente');
+            if(!select) return;
+            const current = select.value;
+            select.innerHTML = '<option value="">Selecione o lead/cliente alvo</option>';
+            clientes.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id; opt.textContent = c.nome;
+                select.appendChild(opt);
+            });
+            select.value = current;
+        }
+
+        function calcularPreviaOrcamento() {
+            const vHora = parseFloat(document.getElementById('orcValorHora').value) || 0;
+            const hMes = parseInt(document.getElementById('orcHorasMes').value) || 0;
+            const meses = parseInt(document.getElementById('orcMeses').value) || 0;
+            const total = vHora * hMes * meses;
+            document.getElementById('orcTotalPrevia').textContent = formatCurrency(total);
+        }
+
+        async function salvarOrcamento() {
+            const select = document.getElementById('orcCliente');
+            const clienteId = select.value;
+            const clienteNome = select.options[select.selectedIndex]?.text || '';
+            const valorHora = parseFloat(document.getElementById('orcValorHora').value) || 0;
+            const horas = parseInt(document.getElementById('orcHorasMes').value) || 0;
+            const meses = parseInt(document.getElementById('orcMeses').value) || 0;
+            const escopo = document.getElementById('orcEscopo').value;
+            const total = valorHora * horas * meses;
+
+            if(!clienteId || total <= 0) return showMessage('Selecione o cliente e preencha os valores.', 'error');
+
+            const payload = {
+                cliente_id: parseInt(clienteId),
+                cliente_nome: clienteNome,
+                valor_hora: valorHora,
+                horas_mes: horas,
+                meses_contrato: meses,
+                valor_total: total,
+                escopo_planejamento: escopo,
+                status: 'Salvo'
+            };
+
+            const res = await apiFetch('/items/mt_orcamentos', 'POST', payload);
+            if(res && res.data) {
+                orcamentos_db.push(res.data);
+                showMessage('Proposta salva no banco!', 'success');
+                carregarHistoricoOrcamentos();
+            }
+        }
+
+        function baixarPDF(tipo) {
+            const select = document.getElementById('orcCliente');
+            const cliente = select.options[select.selectedIndex]?.text || 'Cliente';
+            const valorHora = document.getElementById('orcValorHora').value || '0';
+            const horas = document.getElementById('orcHorasMes').value || '0';
+            const meses = document.getElementById('orcMeses').value || '0';
+            const escopo = document.getElementById('orcEscopo').value || '';
+            const total = (parseFloat(valorHora) * parseInt(horas) * parseInt(meses)) || 0;
+
+            const content = document.createElement('div');
+            content.style.padding = '40px';
+            content.style.fontFamily = 'Arial, sans-serif';
+            content.style.color = '#000';
+            content.style.background = '#fff';
+
+            if(tipo === 'orcamento') {
+                content.innerHTML = `
+                    <h1 style="color: #7C3AED;">ORÇAMENTO PRELIMINAR</h1>
+                    <hr>
+                    <p><strong>Lead/Cliente:</strong> ${cliente}</p>
+                    <br>
+                    <h3>Resumo Financeiro</h3>
+                    <p><strong>Valor da Hora:</strong> R$ ${valorHora}</p>
+                    <p><strong>Dedicação Mensal:</strong> ${horas} horas</p>
+                    <p><strong>Duração Prevista:</strong> ${meses} meses</p>
+                    <br>
+                    <h2><strong>Investimento Total Projetado:</strong> R$ ${total.toFixed(2)}</h2>
+                `;
+            } else {
+                content.innerHTML = `
+                    <h1 style="color: #00E5FF;">PLANEJAMENTO E ESCOPO DE TRABALHO</h1>
+                    <hr>
+                    <p><strong>Lead/Cliente:</strong> ${cliente}</p>
+                    <br>
+                    <h3>Detalhamento das Atividades</h3>
+                    <p style="white-space: pre-wrap; margin-top: 15px;">${escopo}</p>
+                `;
+            }
+
+            html2pdf().set({
+                margin: 15,
+                filename: `${tipo}_${cliente.replace(/ /g, '_')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).from(content).save();
+        }
+
+        function carregarHistoricoOrcamentos() {
+            const listaDiv = document.getElementById('lista-orcamentos');
+            listaDiv.innerHTML = orcamentos_db.length === 0 ? '<p class="empty-state">Nenhum orçamento salvo no banco.</p>' : '';
+            orcamentos_db.forEach(o => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.innerHTML = `
+                    <div class="item-info">
+                        <div class="item-name" style="color:var(--color-secondary);">${o.cliente_nome}</div>
+                        <div class="item-detail">Total: <span style="font-weight:700;color:white;">${formatCurrency(o.valor_total)}</span> | Duração: ${o.meses_contrato} meses</div>
+                        <div class="item-detail" style="font-size:0.75rem; max-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${o.escopo_planejamento || 'Sem escopo'}</div>
+                    </div>
+                `;
+                listaDiv.appendChild(div);
+            });
         }
 
         let vendaProdutoCounter = 0; 
