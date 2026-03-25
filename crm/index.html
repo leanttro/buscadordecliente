@@ -9,20 +9,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* ==========================================
-           NOVO VISUAL LEANTTRO (DARK TECH MODE)
-           ========================================== */
         :root {
-            --color-primary: #7C3AED; /* Roxo Leanttro */
-            --color-secondary: #00E5FF; /* Cyan Neon */
-            --color-accent: #8A2BE2; /* Roxo brilhante */
-            --color-background-light: #050505; /* Fundo Ultra Dark */
-            --color-text-dark: #F8F9FA; /* Texto claro agora (invertido para dark mode) */
-            --color-text-light: #FFFFFF; /* Texto branco puro */
-            --color-card-bg: rgba(15, 15, 15, 0.85); /* Cards escuros e translúcidos */
-            --color-form-section-bg: rgba(255, 255, 255, 0.03); /* Seções de formulário */
-            --color-border: rgba(255, 255, 255, 0.1); /* Bordas sutis */
-            --color-shadow: rgba(0, 0, 0, 0.8); /* Sombras pesadas */
+            --color-primary: #7C3AED;
+            --color-secondary: #00E5FF;
+            --color-accent: #8A2BE2;
+            --color-background-light: #050505;
+            --color-text-dark: #F8F9FA;
+            --color-text-light: #FFFFFF;
+            --color-card-bg: rgba(15, 15, 15, 0.85);
+            --color-form-section-bg: rgba(255, 255, 255, 0.03);
+            --color-border: rgba(255, 255, 255, 0.1);
+            --color-shadow: rgba(0, 0, 0, 0.8);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -43,7 +40,6 @@
             background-attachment: fixed;
         }
 
-        /* Efeito de brilho de fundo tipo "laser/neon" */
         body::before, body::after {
             content: '';
             position: absolute;
@@ -157,7 +153,6 @@
         .item-detail { color: rgba(255,255,255,0.5); font-size: 0.85rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
         .item-actions { display: flex; gap: 10px; margin-left: 15px; }
 
-        /* Nova Tabela de CRM e Controles */
         .crm-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         .crm-table th, .crm-table td { padding: 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); font-size: 0.9rem; }
         .crm-table th { background: rgba(124, 58, 237, 0.1); color: var(--color-primary); font-family: 'Archivo Black', sans-serif; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
@@ -290,13 +285,26 @@
                 <div class="form-grid">
                     <div class="form-section">
                         <h3>Configurar Escopo</h3>
+                        
                         <div class="form-group">
                             <label for="orcCliente">Cliente Alvo</label>
                             <div class="input-with-icon">
                                 <span class="input-icon">👥</span>
-                                <select id="orcCliente"></select>
+                                <select id="orcCliente" onchange="toggleManualClient(); calcularPreviaOrcamento();"></select>
                             </div>
                         </div>
+
+                        <div id="orcAvulsoFields" style="display: none; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="orcNomeAvulso">Nome do Cliente / Empresa</label>
+                                <input type="text" id="orcNomeAvulso" class="crm-input" placeholder="Ex: Corporação X" oninput="calcularPreviaOrcamento()">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="orcContatoAvulso">Contato (WhatsApp/E-mail)</label>
+                                <input type="text" id="orcContatoAvulso" class="crm-input" placeholder="Ex: (11) 99999-9999" oninput="calcularPreviaOrcamento()">
+                            </div>
+                        </div>
+
                         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                             <div class="form-group" style="flex: 1;">
                                 <label for="orcValorHora">Valor da Hora (R$)</label>
@@ -313,12 +321,19 @@
                         </div>
                         <div class="form-group mt-3">
                             <label for="orcEscopo">Planejamento Estratégico (Atividades e Entregáveis)</label>
-                            <textarea id="orcEscopo" rows="6" class="crm-input" placeholder="Detalhe aqui o que será feito com as horas contratadas..."></textarea>
+                            <textarea id="orcEscopo" rows="6" class="crm-input" placeholder="Detalhe aqui o que será feito com as horas contratadas..." oninput="calcularPreviaOrcamento()"></textarea>
                         </div>
 
                         <div style="background: rgba(0, 229, 255, 0.05); border: 1px solid var(--color-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
                             <span style="color: var(--color-text-light); font-size: 0.9rem; text-transform: uppercase;">Valor Total Projetado</span><br>
                             <span id="orcTotalPrevia" style="color: var(--color-secondary); font-size: 2rem; font-family: 'Archivo Black', sans-serif;">R$ 0,00</span>
+                        </div>
+
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: var(--color-primary); margin-bottom: 10px; font-size: 0.9rem; text-transform: uppercase;">Pré-visualização do Documento</h4>
+                            <div id="orcPreviewContainer" style="border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; max-height: 400px; overflow-y: auto; background: #050505;">
+                                <p class="empty-state" style="padding: 20px; margin: 0;">Preencha os dados para visualizar a proposta.</p>
+                            </div>
                         </div>
 
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -1614,9 +1629,6 @@
 
         function cancelEditProduto(id) { renderizarProdutos(); }
 
-        // ==========================================
-        // INTEGRAÇÃO DE LEADS NO CRM DINÂMICO E AVANÇADO
-        // ==========================================
         async function adicionarCliente() {
             const nome = document.getElementById('clienteNome').value;
             const empresa = document.getElementById('clienteEmpresa').value;
@@ -1637,7 +1649,6 @@
                 atualizarFiltroOrigem();
                 renderizarClientes();
                 
-                // Limpa campos
                 ['clienteNome','clienteEmpresa','clienteEmail','clienteTelefone','clienteOrigem','clienteUrl','clienteObs'].forEach(id => document.getElementById(id).value='');
                 carregarClientesNaVenda();
                 carregarClientesNoOrcamento();
@@ -1666,7 +1677,7 @@
             tr.innerHTML = `
                 <td onclick="event.stopPropagation()"></td>
                 <td>
-                    <input type="text" class="crm-input edit-nome" value="${c.nome || ''}" placeholder="Nome">
+                    <input type="text" class="crm-input edit-nome" value="${c.nome && c.nome !== '-' ? c.nome : ''}" placeholder="Nome">
                     <input type="text" class="crm-input edit-empresa" value="${c.empresa || ''}" placeholder="Empresa">
                 </td>
                 <td>
@@ -1696,7 +1707,7 @@
 
         async function salvarCliente(id) {
             const tr = document.querySelector(`tr[data-id="${id}"]`);
-            const nome = tr.querySelector('.edit-nome').value;
+            const nome = tr.querySelector('.edit-nome').value || '-';
             const empresa = tr.querySelector('.edit-empresa').value;
             const email = tr.querySelector('.edit-email').value;
             const telefone = tr.querySelector('.edit-telefone').value;
@@ -1704,8 +1715,6 @@
             const url = tr.querySelector('.edit-url').value;
             const obs = tr.querySelector('.edit-obs').value;
             const status = tr.querySelector('.edit-status').value;
-
-            if (!nome) return showMessage("Nome é obrigatório.", "error");
 
             const crmTable = getUserCrmTable();
             const payload = { nome, empresa, email, telefone, origem, url, obs, status };
@@ -1761,7 +1770,7 @@
             if(!c) return;
             currentContactId = id;
             document.getElementById('contactModalInfo').innerHTML = `
-                <div style="margin-bottom: 5px;"><strong>Lead:</strong> <span style="color:var(--color-secondary);">${c.nome || '-'}</span></div>
+                <div style="margin-bottom: 5px;"><strong>Lead:</strong> <span style="color:var(--color-secondary);">${c.nome && c.nome !== '-' ? c.nome : (c.empresa || '-')}</span></div>
                 <div style="margin-bottom: 5px;"><strong>Empresa:</strong> ${c.empresa || '-'}</div>
                 <div style="margin-bottom: 5px;"><strong>E-mail:</strong> ${c.email || '-'}</div>
                 <div><strong>WhatsApp:</strong> ${c.telefone || '-'}</div>
@@ -1775,7 +1784,8 @@
         }
 
         function parseMessage(text, c) {
-            return text.replace(/{nome}/g, c.nome || '').replace(/{empresa}/g, c.empresa || '');
+            let nomeStr = c.nome && c.nome !== '-' ? c.nome : '';
+            return text.replace(/{nome}/g, nomeStr).replace(/{empresa}/g, c.empresa || '');
         }
 
         function enviarWhatsappModal() {
@@ -1844,11 +1854,13 @@
                 else if (statusText.toLowerCase() === 'cliente') statusClass = 'status-cliente';
                 else if (statusText === 'ENVIADO EM MASSA') statusClass = 'status-enviado';
 
+                let nomeDisplay = c.nome && c.nome !== '-' ? c.nome : 'Lead S/ Nome';
+
                 html += `
                     <tr data-id="${c.id}" ondblclick="editarCliente(${c.id})" style="cursor: pointer;" title="Dê 2 cliques para editar a linha inteira">
                         <td style="text-align: center;" onclick="event.stopPropagation()"><input type="checkbox" class="mass-check-item" value="${c.id}"></td>
                         <td>
-                            <div style="font-weight: bold; color: var(--color-text-light); font-family: 'Archivo Black', sans-serif;">${c.nome || '-'}</div>
+                            <div style="font-weight: bold; color: var(--color-text-light); font-family: 'Archivo Black', sans-serif;">${nomeDisplay}</div>
                             <div style="font-size: 0.8rem; color: rgba(255,255,255,0.5);">${c.empresa || '-'}</div>
                         </td>
                         <td>
@@ -1879,7 +1891,8 @@
             select.innerHTML = '<option value="">Selecione o comprador</option>';
             clientes.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = c.id; opt.textContent = c.nome;
+                opt.value = c.id; 
+                opt.textContent = c.nome && c.nome !== '-' ? c.nome : (c.empresa || 'Cliente S/ Nome');
                 select.appendChild(opt);
             });
             select.value = current;
@@ -1889,13 +1902,119 @@
             const select = document.getElementById('orcCliente');
             if(!select) return;
             const current = select.value;
-            select.innerHTML = '<option value="">Selecione o lead/cliente alvo</option>';
+            select.innerHTML = '<option value="">Selecione o lead/cliente alvo</option><option value="avulso">➕ Orçamento Avulso (Manual)</option>';
             clientes.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = c.id; opt.textContent = c.nome;
+                opt.value = c.id; 
+                opt.textContent = c.nome && c.nome !== '-' ? c.nome : (c.empresa || 'Lead S/ Nome');
                 select.appendChild(opt);
             });
             select.value = current;
+            toggleManualClient();
+        }
+
+        function toggleManualClient() {
+            const select = document.getElementById('orcCliente');
+            const avulsoFields = document.getElementById('orcAvulsoFields');
+            if (select.value === 'avulso') {
+                avulsoFields.style.display = 'flex';
+            } else {
+                avulsoFields.style.display = 'none';
+            }
+        }
+
+        function gerarHTMLOrcamento(tipo) {
+            const select = document.getElementById('orcCliente');
+            let clienteNome = 'Cliente Não Informado';
+            let clienteContato = '';
+
+            if (select.value === 'avulso') {
+                clienteNome = document.getElementById('orcNomeAvulso').value || 'Cliente Não Informado';
+                clienteContato = document.getElementById('orcContatoAvulso').value || '';
+            } else if (select.value) {
+                const c = clientes.find(x => x.id == select.value);
+                if (c) {
+                    clienteNome = c.nome && c.nome !== '-' ? c.nome : (c.empresa || 'Cliente');
+                    clienteContato = c.telefone || c.email || '';
+                }
+            }
+
+            const valorHora = parseFloat(document.getElementById('orcValorHora').value) || 0;
+            const horas = parseInt(document.getElementById('orcHorasMes').value) || 0;
+            const meses = parseInt(document.getElementById('orcMeses').value) || 0;
+            const escopo = document.getElementById('orcEscopo').value || 'Nenhum escopo detalhado fornecido.';
+            const total = valorHora * horas * meses;
+            
+            const numOrcamento = "LEANTTRO-" + Date.now().toString().slice(-6);
+            const dataAtual = new Date().toLocaleDateString('pt-BR');
+
+            const logoUrl = 'https://res.cloudinary.com/dzcaxmbjn/image/upload/v1773591878/presentes_180_x_50_px_720_x_200_px_1440_x_264_px_1_azuhgq.png';
+
+            let html = `
+            <div style="padding: 40px; font-family: 'Inter', sans-serif; background-color: #050505; color: #F8F9FA; min-height: 100%; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #7C3AED; padding-bottom: 20px; margin-bottom: 30px;">
+                    <div>
+                        <img src="${logoUrl}" alt="Logo" style="max-height: 60px; margin-bottom: 10px;">
+                        <h2 style="font-family: 'Archivo Black', sans-serif; color: #7C3AED; margin: 0; font-size: 24px; text-transform: uppercase;">
+                            ${tipo === 'orcamento' ? 'PROPOSTA COMERCIAL' : 'ESCOPO DE PROJETO'}
+                        </h2>
+                    </div>
+                    <div style="text-align: right; color: #A0A0A0; font-size: 12px;">
+                        <p style="margin: 0; font-weight: bold; color: #00E5FF;">ID: ${numOrcamento}</p>
+                        <p style="margin: 5px 0 0 0;">Data: ${dataAtual}</p>
+                    </div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 30px;">
+                    <h3 style="font-family: 'Archivo Black', sans-serif; color: #FFFFFF; font-size: 14px; margin-top: 0; text-transform: uppercase; letter-spacing: 1px;">Dados do Cliente</h3>
+                    <p style="margin: 5px 0; font-size: 14px;"><strong>Nome/Empresa:</strong> ${clienteNome}</p>
+                    ${clienteContato ? `<p style="margin: 5px 0; font-size: 14px;"><strong>Contato:</strong> ${clienteContato}</p>` : ''}
+                </div>
+            `;
+
+            if (tipo === 'orcamento') {
+                html += `
+                <div style="margin-bottom: 30px;">
+                    <h3 style="font-family: 'Archivo Black', sans-serif; color: #00E5FF; font-size: 16px; border-bottom: 1px solid rgba(0, 229, 255, 0.3); padding-bottom: 10px; text-transform: uppercase;">Resumo do Investimento</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px;">
+                        <tr style="background: rgba(124, 58, 237, 0.1); text-transform: uppercase; font-family: 'Archivo Black', sans-serif; color: #7C3AED; font-size: 12px;">
+                            <th style="padding: 12px; text-align: left;">Descrição</th>
+                            <th style="padding: 12px; text-align: right;">Dedicação</th>
+                            <th style="padding: 12px; text-align: right;">Prazo</th>
+                            <th style="padding: 12px; text-align: right;">Total</th>
+                        </tr>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 15px 12px;">Assessoria & Desenvolvimento</td>
+                            <td style="padding: 15px 12px; text-align: right;">${horas}h / mês</td>
+                            <td style="padding: 15px 12px; text-align: right;">${meses} meses</td>
+                            <td style="padding: 15px 12px; text-align: right;">${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div style="background: rgba(0, 229, 255, 0.05); border: 1px solid #00E5FF; padding: 25px; border-radius: 12px; text-align: right;">
+                    <p style="margin: 0; font-size: 14px; text-transform: uppercase; color: #A0A0A0; font-weight: bold;">Investimento Total Projetado</p>
+                    <p style="margin: 5px 0 0 0; font-family: 'Archivo Black', sans-serif; font-size: 32px; color: #00E5FF;">
+                        ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                </div>
+                `;
+            } else {
+                html += `
+                <div style="margin-bottom: 30px;">
+                    <h3 style="font-family: 'Archivo Black', sans-serif; color: #7C3AED; font-size: 16px; border-bottom: 1px solid rgba(124, 58, 237, 0.3); padding-bottom: 10px; text-transform: uppercase;">Detalhamento das Atividades</h3>
+                    <div style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-top: 15px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #D0D0D0;">${escopo}</div>
+                </div>
+                `;
+            }
+
+            html += `
+                <div style="margin-top: 50px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                    <p style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin: 0;">Tecnologia exclusiva aplicada ao lucro operacional • Leanttro</p>
+                </div>
+            </div>
+            `;
+            return html;
         }
 
         function calcularPreviaOrcamento() {
@@ -1904,22 +2023,31 @@
             const meses = parseInt(document.getElementById('orcMeses').value) || 0;
             const total = vHora * hMes * meses;
             document.getElementById('orcTotalPrevia').textContent = formatCurrency(total);
+            document.getElementById('orcPreviewContainer').innerHTML = gerarHTMLOrcamento('orcamento');
         }
 
         async function salvarOrcamento() {
             const select = document.getElementById('orcCliente');
-            const clienteId = select.value;
-            const clienteNome = select.options[select.selectedIndex]?.text || '';
+            let clienteId = select.value;
+            let clienteNome = '';
+
+            if (clienteId === 'avulso') {
+                clienteId = null;
+                clienteNome = document.getElementById('orcNomeAvulso').value || 'Avulso';
+            } else {
+                clienteNome = select.options[select.selectedIndex]?.text || '';
+            }
+
             const valorHora = parseFloat(document.getElementById('orcValorHora').value) || 0;
             const horas = parseInt(document.getElementById('orcHorasMes').value) || 0;
             const meses = parseInt(document.getElementById('orcMeses').value) || 0;
             const escopo = document.getElementById('orcEscopo').value;
             const total = valorHora * horas * meses;
 
-            if(!clienteId || total <= 0) return showMessage('Selecione o cliente e preencha os valores.', 'error');
+            if(!clienteNome || total <= 0) return showMessage('Selecione o cliente (ou preencha avulso) e os valores.', 'error');
 
             const payload = {
-                cliente_id: parseInt(clienteId),
+                cliente_id: clienteId ? parseInt(clienteId) : null,
                 cliente_nome: clienteNome,
                 valor_hora: valorHora,
                 horas_mes: horas,
@@ -1938,51 +2066,26 @@
         }
 
         function baixarPDF(tipo) {
+            const htmlContent = gerarHTMLOrcamento(tipo);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = htmlContent;
+            
             const select = document.getElementById('orcCliente');
-            const cliente = select.options[select.selectedIndex]?.text || 'Cliente';
-            const valorHora = document.getElementById('orcValorHora').value || '0';
-            const horas = document.getElementById('orcHorasMes').value || '0';
-            const meses = document.getElementById('orcMeses').value || '0';
-            const escopo = document.getElementById('orcEscopo').value || '';
-            const total = (parseFloat(valorHora) * parseInt(horas) * parseInt(meses)) || 0;
-
-            const content = document.createElement('div');
-            content.style.padding = '40px';
-            content.style.fontFamily = 'Arial, sans-serif';
-            content.style.color = '#000';
-            content.style.background = '#fff';
-
-            if(tipo === 'orcamento') {
-                content.innerHTML = `
-                    <h1 style="color: #7C3AED;">ORÇAMENTO PRELIMINAR</h1>
-                    <hr>
-                    <p><strong>Lead/Cliente:</strong> ${cliente}</p>
-                    <br>
-                    <h3>Resumo Financeiro</h3>
-                    <p><strong>Valor da Hora:</strong> R$ ${valorHora}</p>
-                    <p><strong>Dedicação Mensal:</strong> ${horas} horas</p>
-                    <p><strong>Duração Prevista:</strong> ${meses} meses</p>
-                    <br>
-                    <h2><strong>Investimento Total Projetado:</strong> R$ ${total.toFixed(2)}</h2>
-                `;
-            } else {
-                content.innerHTML = `
-                    <h1 style="color: #00E5FF;">PLANEJAMENTO E ESCOPO DE TRABALHO</h1>
-                    <hr>
-                    <p><strong>Lead/Cliente:</strong> ${cliente}</p>
-                    <br>
-                    <h3>Detalhamento das Atividades</h3>
-                    <p style="white-space: pre-wrap; margin-top: 15px;">${escopo}</p>
-                `;
+            let nomeArquivo = 'Cliente';
+            if (select.value === 'avulso') {
+                nomeArquivo = document.getElementById('orcNomeAvulso').value || 'Avulso';
+            } else if (select.value) {
+                const c = clientes.find(x => x.id == select.value);
+                if (c) nomeArquivo = c.nome && c.nome !== '-' ? c.nome : (c.empresa || 'Cliente');
             }
 
             html2pdf().set({
-                margin: 15,
-                filename: `${tipo}_${cliente.replace(/ /g, '_')}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
+                margin: 0,
+                filename: `${tipo}_${nomeArquivo.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#050505' },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            }).from(content).save();
+            }).from(wrapper).save();
         }
 
         function carregarHistoricoOrcamentos() {
@@ -2068,7 +2171,8 @@
 
             if (hasError) return;
 
-            const cliNome = clientes.find(c => c.id == clienteId).nome;
+            const cli = clientes.find(c => c.id == clienteId);
+            const cliNome = cli.nome && cli.nome !== '-' ? cli.nome : (cli.empresa || 'Cliente');
             const payload = { cliente_id: clienteId, cliente_nome: cliNome, data: vendaData, total: totalVenda, produtos: produtosVendidos };
             
             const res = await apiFetch('/items/mt_vendas', 'POST', payload);
