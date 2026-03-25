@@ -1676,32 +1676,32 @@
             let statusText = c.status || 'Novo';
 
             tr.innerHTML = `
-                <td onclick="event.stopPropagation()">*
-                 <td>
+                <td onclick="event.stopPropagation()"></td>
+                <td>
                     <input type="text" class="crm-input edit-nome" value="${c.nome && c.nome !== '-' ? c.nome : ''}" placeholder="Nome">
                     <input type="text" class="crm-input edit-empresa" value="${c.empresa || ''}" placeholder="Empresa">
-                 </td>
-                 <td>
+                </td>
+                <td>
                     <input type="text" class="crm-input edit-email" value="${c.email || ''}" placeholder="E-mail">
                     <input type="text" class="crm-input edit-telefone" value="${c.telefone || ''}" placeholder="Telefone">
-                 </td>
-                 <td>
+                </td>
+                <td>
                     <input type="text" class="crm-input edit-origem" value="${c.origem || ''}" placeholder="Origem">
                     <input type="text" class="crm-input edit-url" value="${c.url || ''}" placeholder="URL">
-                 </td>
-                 <td><textarea class="crm-input edit-obs" rows="2" placeholder="Observações">${c.obs || ''}</textarea></td>
-                 <td>
+                </td>
+                <td><textarea class="crm-input edit-obs" rows="2" placeholder="Observações">${c.obs || ''}</textarea></td>
+                <td>
                     <select class="crm-select edit-status">
                         <option value="Novo" ${statusText === 'Novo' ? 'selected' : ''}>Novo</option>
                         <option value="Quente" ${statusText === 'Quente' ? 'selected' : ''}>Quente</option>
                         <option value="Cliente" ${statusText === 'Cliente' ? 'selected' : ''}>Cliente</option>
                         <option value="ENVIADO EM MASSA" ${statusText === 'ENVIADO EM MASSA' ? 'selected' : ''}>Massa</option>
                     </select>
-                 </td>
+                </td>
                 <td style="display:flex; gap:5px; flex-direction:column;" onclick="event.stopPropagation()">
                     <button class="btn" style="padding: 6px; font-size: 0.75rem; margin:0;" onclick="salvarCliente(${id})">💾 Salvar</button>
                     <button class="btn-danger" style="padding: 6px; font-size: 0.75rem; margin:0;" onclick="renderizarClientes()">❌ Cancelar</button>
-                 </td>
+                </td>
             `;
             tr.removeAttribute("ondblclick");
         }
@@ -2066,24 +2066,9 @@
             }
         }
 
-        // FUNÇÃO CORRIGIDA PARA GERAR PDF SEM FICAR BRANCO
         function baixarPDF(tipo) {
             const htmlContent = gerarHTMLOrcamento(tipo);
             
-            // Cria um elemento temporário para a captura
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = htmlContent;
-            tempDiv.style.position = 'fixed';
-            tempDiv.style.left = '0';
-            tempDiv.style.top = '0';
-            tempDiv.style.width = '800px';
-            tempDiv.style.zIndex = '-1';
-            tempDiv.style.opacity = '0';
-            tempDiv.style.pointerEvents = 'none';
-            tempDiv.style.backgroundColor = '#050505';
-            document.body.appendChild(tempDiv);
-            
-            // Define o nome do arquivo
             const select = document.getElementById('orcCliente');
             let nomeArquivo = 'Cliente';
             if (select.value === 'avulso') {
@@ -2092,22 +2077,14 @@
                 const c = clientes.find(x => x.id == select.value);
                 if (c) nomeArquivo = c.nome && c.nome !== '-' ? c.nome : (c.empresa || 'Cliente');
             }
-            
-            // Gera o PDF
+
             html2pdf().set({
                 margin: 0,
                 filename: `${tipo}_${nomeArquivo.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
                 image: { type: 'jpeg', quality: 1.0 },
                 html2canvas: { scale: 2, useCORS: true, backgroundColor: '#050505', windowWidth: 800 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            }).from(tempDiv).save().then(() => {
-                // Remove o elemento temporário após o download
-                document.body.removeChild(tempDiv);
-            }).catch(err => {
-                console.error('Erro ao gerar PDF:', err);
-                document.body.removeChild(tempDiv);
-                showMessage('Falha na geração do PDF. Verifique o console.', 'error');
-            });
+            }).from(htmlContent).save();
         }
 
         function carregarHistoricoOrcamentos() {
