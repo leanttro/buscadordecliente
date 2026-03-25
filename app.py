@@ -20,7 +20,7 @@ import concurrent.futures
 from io import BytesIO
 import base64
 
-st.set_page_config(page_title="LEANTTRO SNIPER", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="LEANTTRO CRM & SNIPER", layout="wide", page_icon="⚡")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 os.environ["STREAMLIT_CLIENT_SHOW_ERROR_DETAILS"] = "false"
 
@@ -400,9 +400,13 @@ def search_google_maps_serper(query):
     headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
     try:
         response = requests.request("POST", url, headers=headers, data=json.dumps(payload_dict))
-        if response.status_code != 200: return []
+        if response.status_code != 200:
+            st.error(f"Erro Serper API Status {response.status_code} Detalhes {response.text}")
+            return []
         return response.json().get("places", [])
-    except: return []
+    except Exception as e:
+        st.error(f"Falha de API {e}")
+        return []
 
 def analyze_lead_groq(title, snippet, link, groq_key, system_prompt):
     if not groq_key: return {"score": 0, "autor": "Desc.", "produto_recomendado": "ERRO CHAVE", "argumento_venda": "Sem chave Groq"}
@@ -616,6 +620,9 @@ try:
                     query_maps = f'{nicho} em {bairro} {cidade}'
                     resultados_maps = search_google_maps_serper(query_maps)
                     
+                    if not resultados_maps:
+                        st.warning(f"Maps zerado para {query_maps}")
+
                     for r in resultados_maps:
                         nome_empresa = r.get('title', '')
                         zap_oficial = extrair_whatsapp(r.get('phoneNumber', ''))
