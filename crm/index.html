@@ -166,6 +166,7 @@
         .crm-input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(124, 58, 237, 0.5); color: white; padding: 8px; border-radius: 6px; font-size: 0.85rem; font-family: 'Inter', sans-serif; transition: all 0.3s; margin-bottom: 5px; }
         .crm-input:focus { outline: none; border-color: var(--color-secondary); box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
         .crm-select { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(124, 58, 237, 0.5); color: white; padding: 8px; border-radius: 6px; font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+        option { background-color: #050505; color: #FFFFFF; }
         .mass-check-item { transform: scale(1.2); cursor: pointer; accent-color: var(--color-primary); }
 
         .collapsible-header { background: rgba(255,255,255,0.05); color: var(--color-text-light); padding: 15px 20px; border-radius: 12px; cursor: pointer; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; transition: background 0.3s ease; border: 1px solid rgba(255,255,255,0.1); }
@@ -1945,13 +1946,13 @@
             const escopo = document.getElementById('orcEscopo').value || 'Nenhum escopo detalhado fornecido.';
             const total = valorHora * horas * meses;
             
-            const numOrcamento = "LEANTTRO-" + Date.now().toString().slice(-6);
+            const numOrcamento = 'LEANTTRO' + Date.now().toString().slice(-6);
             const dataAtual = new Date().toLocaleDateString('pt-BR');
 
             const logoUrl = 'https://res.cloudinary.com/dzcaxmbjn/image/upload/v1773591878/presentes_180_x_50_px_720_x_200_px_1440_x_264_px_1_azuhgq.png';
 
             let html = `
-            <div style="padding: 40px; font-family: 'Inter', sans-serif; background-color: #050505; color: #F8F9FA; min-height: 100%; box-sizing: border-box;">
+            <div style="width: 800px; padding: 40px; font-family: 'Inter', sans-serif; background-color: #050505; color: #F8F9FA; min-height: 100vh; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #7C3AED; padding-bottom: 20px; margin-bottom: 30px;">
                     <div>
                         <img src="${logoUrl}" alt="Logo" style="max-height: 60px; margin-bottom: 10px;">
@@ -1965,34 +1966,34 @@
                     </div>
                 </div>
 
-                <div style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 30px;">
+                <div style="background-color: #111111; padding: 20px; border-radius: 8px; border: 1px solid #333333; margin-bottom: 30px;">
                     <h3 style="font-family: 'Archivo Black', sans-serif; color: #FFFFFF; font-size: 14px; margin-top: 0; text-transform: uppercase; letter-spacing: 1px;">Dados do Cliente</h3>
-                    <p style="margin: 5px 0; font-size: 14px;"><strong>Nome/Empresa:</strong> ${clienteNome}</p>
-                    ${clienteContato ? `<p style="margin: 5px 0; font-size: 14px;"><strong>Contato:</strong> ${clienteContato}</p>` : ''}
+                    <p style="margin: 5px 0; font-size: 14px; color: #FFFFFF;"><strong>Nome/Empresa:</strong> ${clienteNome}</p>
+                    ${clienteContato ? `<p style="margin: 5px 0; font-size: 14px; color: #FFFFFF;"><strong>Contato:</strong> ${clienteContato}</p>` : ''}
                 </div>
             `;
 
             if (tipo === 'orcamento') {
                 html += `
                 <div style="margin-bottom: 30px;">
-                    <h3 style="font-family: 'Archivo Black', sans-serif; color: #00E5FF; font-size: 16px; border-bottom: 1px solid rgba(0, 229, 255, 0.3); padding-bottom: 10px; text-transform: uppercase;">Resumo do Investimento</h3>
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px;">
-                        <tr style="background: rgba(124, 58, 237, 0.1); text-transform: uppercase; font-family: 'Archivo Black', sans-serif; color: #7C3AED; font-size: 12px;">
-                            <th style="padding: 12px; text-align: left;">Descrição</th>
-                            <th style="padding: 12px; text-align: right;">Dedicação</th>
-                            <th style="padding: 12px; text-align: right;">Prazo</th>
-                            <th style="padding: 12px; text-align: right;">Total</th>
+                    <h3 style="font-family: 'Archivo Black', sans-serif; color: #00E5FF; font-size: 16px; border-bottom: 1px solid #00E5FF; padding-bottom: 10px; text-transform: uppercase;">Resumo do Investimento</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; color: #FFFFFF;">
+                        <tr style="background-color: #1a0b36; text-transform: uppercase; font-family: 'Archivo Black', sans-serif; color: #7C3AED; font-size: 12px;">
+                            <th style="padding: 12px; text-align: left; border: 1px solid #333;">Descrição</th>
+                            <th style="padding: 12px; text-align: right; border: 1px solid #333;">Dedicação</th>
+                            <th style="padding: 12px; text-align: right; border: 1px solid #333;">Prazo</th>
+                            <th style="padding: 12px; text-align: right; border: 1px solid #333;">Total</th>
                         </tr>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <td style="padding: 15px 12px;">Assessoria & Desenvolvimento</td>
-                            <td style="padding: 15px 12px; text-align: right;">${horas}h / mês</td>
-                            <td style="padding: 15px 12px; text-align: right;">${meses} meses</td>
-                            <td style="padding: 15px 12px; text-align: right;">${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                        <tr style="background-color: #050505;">
+                            <td style="padding: 15px 12px; border: 1px solid #333;">Assessoria & Desenvolvimento</td>
+                            <td style="padding: 15px 12px; text-align: right; border: 1px solid #333;">${horas}h / mês</td>
+                            <td style="padding: 15px 12px; text-align: right; border: 1px solid #333;">${meses} meses</td>
+                            <td style="padding: 15px 12px; text-align: right; border: 1px solid #333; font-weight: bold;">${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                         </tr>
                     </table>
                 </div>
                 
-                <div style="background: rgba(0, 229, 255, 0.05); border: 1px solid #00E5FF; padding: 25px; border-radius: 12px; text-align: right;">
+                <div style="background-color: #001a1c; border: 1px solid #00E5FF; padding: 25px; border-radius: 12px; text-align: right;">
                     <p style="margin: 0; font-size: 14px; text-transform: uppercase; color: #A0A0A0; font-weight: bold;">Investimento Total Projetado</p>
                     <p style="margin: 5px 0 0 0; font-family: 'Archivo Black', sans-serif; font-size: 32px; color: #00E5FF;">
                         ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -2002,14 +2003,14 @@
             } else {
                 html += `
                 <div style="margin-bottom: 30px;">
-                    <h3 style="font-family: 'Archivo Black', sans-serif; color: #7C3AED; font-size: 16px; border-bottom: 1px solid rgba(124, 58, 237, 0.3); padding-bottom: 10px; text-transform: uppercase;">Detalhamento das Atividades</h3>
-                    <div style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-top: 15px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #D0D0D0;">${escopo}</div>
+                    <h3 style="font-family: 'Archivo Black', sans-serif; color: #7C3AED; font-size: 16px; border-bottom: 1px solid #7C3AED; padding-bottom: 10px; text-transform: uppercase;">Detalhamento das Atividades</h3>
+                    <div style="background-color: #111111; padding: 20px; border-radius: 8px; border: 1px solid #333333; margin-top: 15px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #F8F9FA;">${escopo}</div>
                 </div>
                 `;
             }
 
             html += `
-                <div style="margin-top: 50px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                <div style="margin-top: 50px; text-align: center; border-top: 1px solid #333333; padding-top: 20px;">
                     <p style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin: 0;">Tecnologia exclusiva aplicada ao lucro operacional • Leanttro</p>
                 </div>
             </div>
@@ -2070,6 +2071,13 @@
             const wrapper = document.createElement('div');
             wrapper.innerHTML = htmlContent;
             
+            wrapper.style.position = 'absolute';
+            wrapper.style.left = '-9999px';
+            wrapper.style.top = '0';
+            wrapper.style.width = '800px'; 
+            wrapper.style.backgroundColor = '#050505';
+            document.body.appendChild(wrapper);
+            
             const select = document.getElementById('orcCliente');
             let nomeArquivo = 'Cliente';
             if (select.value === 'avulso') {
@@ -2083,9 +2091,11 @@
                 margin: 0,
                 filename: `${tipo}_${nomeArquivo.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
                 image: { type: 'jpeg', quality: 1.0 },
-                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#050505' },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#050505', windowWidth: 800 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            }).from(wrapper).save();
+            }).from(wrapper).save().then(() => {
+                document.body.removeChild(wrapper);
+            });
         }
 
         function carregarHistoricoOrcamentos() {
