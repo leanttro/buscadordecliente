@@ -2095,7 +2095,7 @@
             btn.disabled = true;
         
             try {
-                const response = await fetch('http://localhost:5000/gerar_pdf', {
+                const response = await fetch('https://pdf.leanttro.com/gerar_pdf', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -2122,7 +2122,7 @@
                 document.body.removeChild(a);
             } catch (error) {
                 console.error(error);
-                alert('Erro ao conectar com a API Python. Verifique se o Flask está rodando na porta 5000.');
+                alert('Erro ao conectar com a API Python. Verifique se o backend subiu corretamente.');
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
