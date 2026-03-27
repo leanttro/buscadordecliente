@@ -1952,7 +1952,7 @@
             const logoUrl = 'https://res.cloudinary.com/dzcaxmbjn/image/upload/v1773591878/presentes_180_x_50_px_720_x_200_px_1440_x_264_px_1_azuhgq.png';
 
             let html = `
-            <div style="width: 800px; padding: 40px; font-family: 'Inter', sans-serif; background-color: #050505; color: #F8F9FA; min-height: 100vh; box-sizing: border-box;">
+            <div style="width: 800px; height: 1122px; padding: 40px; font-family: 'Inter', sans-serif; background-color: #050505; color: #F8F9FA; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #7C3AED; padding-bottom: 20px; margin-bottom: 30px;">
                     <div>
                         <img src="${logoUrl}" alt="Logo" style="max-height: 60px; margin-bottom: 10px;">
@@ -2084,12 +2084,7 @@
             btn.innerText = "GERANDO PDF LOCALMENTE...";
             btn.disabled = true;
 
-            const elementoHtml = document.createElement('div');
-            elementoHtml.style.position = 'absolute';
-            elementoHtml.style.left = '-9999px';
-            elementoHtml.style.top = '0';
-            elementoHtml.innerHTML = gerarHTMLOrcamento(tipo);
-            document.body.appendChild(elementoHtml);
+            const htmlContent = gerarHTMLOrcamento(tipo);
 
             const opt = {
                 margin: 0,
@@ -2105,12 +2100,11 @@
             };
 
             try {
-                await html2pdf().set(opt).from(elementoHtml).save();
+                await html2pdf().set(opt).from(htmlContent).save();
             } catch (error) {
                 console.error(error);
-                alert('Erro ao processar PDF direto no navegador. Verifique o console.');
+                alert('Erro ao processar PDF direto no navegador.');
             } finally {
-                document.body.removeChild(elementoHtml);
                 btn.innerText = originalText;
                 btn.disabled = false;
             }
