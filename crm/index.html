@@ -2069,7 +2069,7 @@
         async function baixarPDF(tipo) {
             const select = document.getElementById('orcCliente');
             let clienteNome = '';
-
+        
             if (select.value === 'avulso') {
                 clienteNome = document.getElementById('orcNomeAvulso').value || 'Avulso';
             } else if (select.value) {
@@ -2078,14 +2078,15 @@
                     clienteNome = c.nome && c.nome !== '' ? c.nome : (c.empresa || 'Cliente');
                 }
             }
-
+        
             const btn = event.target;
             const originalText = btn.innerText;
-            btn.innerText = "GERANDO PDF LOCALMENTE...";
+            btn.innerText = 'GERANDO PDF LOCALMENTE...';
             btn.disabled = true;
-
-            const htmlContent = gerarHTMLOrcamento(tipo);
-
+        
+            const htmlRaw = gerarHTMLOrcamento(tipo);
+            const htmlContent = `<div style="position: absolute; top: 0; left: 0; width: 800px; height: 1122px; background-color: #050505;">${htmlRaw}</div>`;
+        
             const opt = {
                 margin: 0,
                 filename: tipo + '_' + clienteNome.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf',
@@ -2094,11 +2095,13 @@
                     scale: 2, 
                     useCORS: true, 
                     logging: false,
-                    backgroundColor: '#050505'
+                    backgroundColor: '#050505',
+                    scrollY: 0,
+                    windowY: 0
                 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
-
+        
             try {
                 await html2pdf().set(opt).from(htmlContent).save();
             } catch (error) {
