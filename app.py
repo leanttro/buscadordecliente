@@ -12,7 +12,6 @@ from datetime import datetime, date
 import time
 import os
 import random
-import urllib3
 import json
 import urllib.parse
 import re
@@ -22,7 +21,6 @@ import base64
 from fpdf import FPDF
 
 st.set_page_config(page_title="LEANTTRO CRM & SNIPER", layout="wide", page_icon="⚡")
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 os.environ["STREAMLIT_CLIENT_SHOW_ERROR_DETAILS"] = "false"
 
 st.markdown("""
@@ -110,7 +108,6 @@ def gerar_pdf_servidor(dados):
     pdf.set_fill_color(5, 5, 5)
     pdf.rect(0, 0, 210, 297, 'F')
     
-    # Header logic
     pdf.set_text_color(124, 58, 237)
     pdf.set_font("Arial", 'B', 20)
     pdf.cell(0, 15, "LEANTTRO | PROPOSTA", ln=True, align='C')
@@ -140,7 +137,8 @@ def gerar_pdf_servidor(dados):
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(0, 15, f"INVESTIMENTO TOTAL: {dados.get('total', 'R$ 0,00')}", ln=True, align='R', fill=True)
     
-    return pdf.output(dest='S').encode('latin-1')
+    out = pdf.output(dest='S')
+    return out.encode('latin-1') if isinstance(out, str) else bytes(out)
 
 def render_header():
     st.markdown("""
@@ -187,10 +185,10 @@ def inicializar_crm_usuario(token, user_id):
     base_url = DIRECTUS_URL.rstrip('/')
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     
-    r = requests.get(f"{base_url}/collections/{table_name}", headers=headers, verify=False)
+    r = requests.get(f"{base_url}/collections/{table_name}", headers=headers)
     if r.status_code != 200:
         schema = {"collection": table_name, "schema": {}, "meta": {"icon": "rocket", "note": "Leanttro CRM Table"}}
-        requests.post(f"{base_url}/collections", json=schema, headers=headers, verify=False)
+        requests.post(f"{base_url}/collections", json=schema, headers=headers)
     
     campos = [
         {"field": "nome", "type": "string", "meta": {"interface": "input", "width": "half", "icon": "person"}},
@@ -205,21 +203,21 @@ def inicializar_crm_usuario(token, user_id):
     
     for campo in campos:
         try:
-            requests.post(f"{base_url}/fields/{table_name}", json=campo, headers=headers, verify=False)
+            requests.post(f"{base_url}/fields/{table_name}", json=campo, headers=headers)
         except:
             pass 
 
-    r_smtp = requests.get(f"{base_url}/collections/config_smtp", headers=headers, verify=False)
+    r_smtp = requests.get(f"{base_url}/collections/config_smtp", headers=headers)
     if r_smtp.status_code != 200:
         schema_smtp = {"collection": "config_smtp", "schema": {}, "meta": {"icon": "email", "note": "SMTP Users Config"}}
-        requests.post(f"{base_url}/collections", json=schema_smtp, headers=headers, verify=False)
+        requests.post(f"{base_url}/collections", json=schema_smtp, headers=headers)
         campos_smtp = [
             {"field": "smtp_host", "type": "string"},
             {"field": "smtp_port", "type": "integer"},
             {"field": "smtp_user", "type": "string"},
             {"field": "smtp_pass", "type": "string"}
         ]
-        for c in campos_smtp: requests.post(f"{base_url}/fields/config_smtp", json=c, headers=headers, verify=False)
+        for c in campos_smtp: requests.post(f"{base_url}/fields/config_smtp", json=c, headers=headers)
         
     return True, "CRM Initialized"
 
@@ -231,13 +229,13 @@ def criar_coluna_dinamica(token, user_id, nome_campo, tipo_interface):
     mapa = {"Texto": "string", "Número": "integer", "Data": "date"}
     type_d = mapa.get(tipo_interface, "string")
     payload = {"field": slug, "type": type_d, "meta": {"interface": "input", "width": "full"}, "schema": {"is_nullable": True}}
-    r = requests.post(f"{base_url}/fields/{table_name}", json=payload, headers=headers, verify=False)
+    r = requests.post(f"{base_url}/fields/{table_name}", json=payload, headers=headers)
     return r.status_code == 200
 
 def carregar_dados(token, user_id):
     try:
         table = get_user_table_name(user_id)
-        r = requests.get(f"{DIRECTUS_URL}/items/{table}?limit=-1", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        r = requests.get(f"{DIRECTUS_URL}/items/{table}?limit=-1", headers={"Authorization": f"Bearer {token}"})
         if r.status_code == 200:
             df = pd.DataFrame(r.json()['data'])
             if 'id' in df.columns:
@@ -254,12 +252,12 @@ def salvar_lead_crm(token, user_id, dados):
     payload = {"status": "Novo"}
     for k, v in dados.items():
         payload[k] = str(v)
-    r = requests.post(f"{DIRECTUS_URL}/items/{table}", json=payload, headers=headers, verify=False)
+    r = requests.post(f"{DIRECTUS_URL}/items/{table}", json=payload, headers=headers)
     return r.status_code in [200, 204]
 
 def carregar_dados_bot(token):
     try:
-        r = requests.get(f"{DIRECTUS_URL}/items/clients_bot?limit=-1", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        r = requests.get(f"{DIRECTUS_URL}/items/clients_bot?limit=-1", headers={"Authorization": f"Bearer {token}"})
         if r.status_code == 200:
             df = pd.DataFrame(r.json()['data'])
             if not df.empty:
@@ -275,12 +273,12 @@ def carregar_dados_bot(token):
 
 def atualizar_item(token, user_id, item_id, dados):
     table = get_user_table_name(user_id)
-    requests.patch(f"{DIRECTUS_URL}/items/{table}/{item_id}", json=dados, headers={"Authorization": f"Bearer {token}"}, verify=False)
+    requests.patch(f"{DIRECTUS_URL}/items/{table}/{item_id}", json=dados, headers={"Authorization": f"Bearer {token}"})
 
 def carregar_config_smtp(token):
     try:
         base_url = DIRECTUS_URL.rstrip('/')
-        r = requests.get(f"{base_url}/items/config_smtp?limit=1", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        r = requests.get(f"{base_url}/items/config_smtp?limit=1", headers={"Authorization": f"Bearer {token}"})
         if r.status_code == 200:
             data = r.json()['data']
             if data and len(data) > 0: return data[0]
@@ -292,9 +290,9 @@ def salvar_config_smtp(token, dados):
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     existente = carregar_config_smtp(token)
     if existente and 'id' in existente:
-        r = requests.patch(f"{base_url}/items/config_smtp/{existente['id']}", json=dados, headers=headers, verify=False)
+        r = requests.patch(f"{base_url}/items/config_smtp/{existente['id']}", json=dados, headers=headers)
     else:
-        r = requests.post(f"{base_url}/items/config_smtp", json=dados, headers=headers, verify=False)
+        r = requests.post(f"{base_url}/items/config_smtp", json=dados, headers=headers)
     return r.status_code in [200, 204]
 
 def contar_envios_hoje(token):
@@ -302,7 +300,7 @@ def contar_envios_hoje(token):
         base_url = DIRECTUS_URL.rstrip('/')
         hoje_str = datetime.now().strftime("%Y-%m-%d")
         url = f"{base_url}/items/historico_envios?filter[data_envio][_gte]={hoje_str}&filter[user_created][_eq]=$CURRENT_USER&aggregate[count]=*"
-        r = requests.get(url, headers={"Authorization": f"Bearer {token}"}, verify=False)
+        r = requests.get(url, headers={"Authorization": f"Bearer {token}"})
         if r.status_code == 200:
             data = r.json()['data']
             if isinstance(data, list) and len(data) > 0:
@@ -314,7 +312,7 @@ def registrar_log_envio(token, destinatario, assunto, status):
     try:
         base_url = DIRECTUS_URL.rstrip('/')
         payload = {"data_envio": datetime.now().isoformat(), "destinatario": destinatario, "assunto": assunto, "status": status, "aberto": False}
-        r = requests.post(f"{base_url}/items/historico_envios", json=payload, headers={"Authorization": f"Bearer {token}"}, verify=False)
+        r = requests.post(f"{base_url}/items/historico_envios", json=payload, headers={"Authorization": f"Bearer {token}"})
         if r.status_code in [200, 201]: return r.json()['data']['id']
     except: pass
     return None
@@ -324,7 +322,7 @@ def atualizar_status_envio(token, log_id, novo_status, erro_msg=None):
         base_url = DIRECTUS_URL.rstrip('/')
         payload = {"status": novo_status}
         if erro_msg: payload["obs"] = erro_msg
-        requests.patch(f"{base_url}/items/historico_envios/{log_id}", json=payload, headers={"Authorization": f"Bearer {token}"}, verify=False)
+        requests.patch(f"{base_url}/items/historico_envios/{log_id}", json=payload, headers={"Authorization": f"Bearer {token}"})
     except: pass
 
 def enviar_email_smtp(smtp_config, to, subject, body, anexo=None, tracking_url=None):
@@ -417,7 +415,7 @@ def gerar_whatsapp_ia(ctx, dados_cliente=None):
 
 def validar_token(token):
     try:
-        r = requests.get(f"{DIRECTUS_URL}/users/me", headers={"Authorization": f"Bearer {token}"}, verify=False)
+        r = requests.get(f"{DIRECTUS_URL}/users/me", headers={"Authorization": f"Bearer {token}"})
         if r.status_code == 200: return r.json()['data']
     except: pass
     return None
@@ -512,11 +510,11 @@ if 'token' not in st.session_state:
         if st.button("ACESSAR SISTEMA", width='stretch'):
             login_sucesso = False
             try:
-                r = requests.post(f"{DIRECTUS_URL}/auth/login", json={"email": email, "password": senha}, verify=False)
+                r = requests.post(f"{DIRECTUS_URL}/auth/login", json={"email": email, "password": senha})
                 if r.status_code == 200:
                     token = r.json()['data']['access_token']
                     st.session_state['token'] = token
-                    u = requests.get(f"{DIRECTUS_URL}/users/me", headers={"Authorization": f"Bearer {token}"}, verify=False)
+                    u = requests.get(f"{DIRECTUS_URL}/users/me", headers={"Authorization": f"Bearer {token}"})
                     st.session_state['user'] = u.json()['data']
                     st.query_params["token"] = token
                     login_sucesso = True
@@ -825,7 +823,7 @@ try:
             if st.button("SALVAR ALTERACOES NA BASE"):
                 chg = st.session_state["editor"]
                 for idx in chg.get("deleted_rows", []):
-                    try: requests.delete(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}/{df_visual.iloc[idx]['id']}", headers={"Authorization": f"Bearer {token}"}, verify=False)
+                    try: requests.delete(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}/{df_visual.iloc[idx]['id']}", headers={"Authorization": f"Bearer {token}"})
                     except: pass
                 for idx, row in chg["edited_rows"].items():
                     try: atualizar_item(token, user_id, df_visual.iloc[int(idx)]['id'], row)
@@ -836,7 +834,7 @@ try:
                 proximo_id = int(max_id) + 1 if not pd.isna(max_id) else 1
                 for row in chg["added_rows"]:
                     if 'id' not in row or not row['id']: row['id'] = proximo_id; proximo_id += 1
-                    requests.post(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}", json=row, headers={"Authorization": f"Bearer {token}"}, verify=False)
+                    requests.post(f"{DIRECTUS_URL}/items/{get_user_table_name(user_id)}", json=row, headers={"Authorization": f"Bearer {token}"})
                 st.toast("Dados atualizados", icon="✅")
                 time.sleep(1)
                 st.rerun()
@@ -1113,7 +1111,7 @@ try:
                                     payload[slug] = str(val)
 
                                 try:
-                                    r_imp = requests.post(f"{base_url}/items/{table_name}", json=payload, headers=headers, verify=False)
+                                    r_imp = requests.post(f"{base_url}/items/{table_name}", json=payload, headers=headers)
                                     if r_imp.status_code in [200, 204]:
                                         sucesso_imp += 1
                                 except:
