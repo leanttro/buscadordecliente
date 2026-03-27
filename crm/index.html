@@ -2081,17 +2081,26 @@
 
             const btn = event.target;
             const originalText = btn.innerText;
-            btn.innerText = "GERANDO PDF...";
+            btn.innerText = "GERANDO PDF LOCALMENTE...";
             btn.disabled = true;
 
             const elementoHtml = document.createElement('div');
+            elementoHtml.style.position = 'absolute';
+            elementoHtml.style.left = '-9999px';
+            elementoHtml.style.top = '0';
             elementoHtml.innerHTML = gerarHTMLOrcamento(tipo);
+            document.body.appendChild(elementoHtml);
 
             const opt = {
                 margin: 0,
                 filename: tipo + '_' + clienteNome.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
+                image: { type: 'jpeg', quality: 1 },
+                html2canvas: { 
+                    scale: 2, 
+                    useCORS: true, 
+                    logging: false,
+                    backgroundColor: '#050505'
+                },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
@@ -2099,8 +2108,9 @@
                 await html2pdf().set(opt).from(elementoHtml).save();
             } catch (error) {
                 console.error(error);
-                alert('Erro ao processar PDF no navegador.');
+                alert('Erro ao processar PDF direto no navegador. Verifique o console.');
             } finally {
+                document.body.removeChild(elementoHtml);
                 btn.innerText = originalText;
                 btn.disabled = false;
             }
