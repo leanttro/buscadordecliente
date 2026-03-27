@@ -2068,45 +2068,61 @@
 
         async function baixarPDF(tipo) {
             const select = document.getElementById('orcCliente');
-            let clienteNome = '';
+            let clienteNome = 'Cliente Não Informado';
+            let clienteContato = '';
         
             if (select.value === 'avulso') {
                 clienteNome = document.getElementById('orcNomeAvulso').value || 'Avulso';
+                clienteContato = document.getElementById('orcContatoAvulso').value || '';
             } else if (select.value) {
                 const c = clientes.find(x => x.id == select.value);
                 if (c) {
                     clienteNome = c.nome && c.nome !== '' ? c.nome : (c.empresa || 'Cliente');
+                    clienteContato = c.telefone || c.email || '';
                 }
             }
         
+            const valorHora = parseFloat(document.getElementById('orcValorHora').value) || 0;
+            const horas = parseInt(document.getElementById('orcHorasMes').value) || 0;
+            const meses = parseInt(document.getElementById('orcMeses').value) || 0;
+            const escopo = document.getElementById('orcEscopo').value || 'Nenhum escopo detalhado fornecido.';
+            const totalCalc = valorHora * horas * meses;
+            const totalFormatado = totalCalc.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        
             const btn = event.target;
             const originalText = btn.innerText;
-            btn.innerText = 'GERANDO PDF LOCALMENTE...';
+            btn.innerText = 'GERANDO PDF NO SERVIDOR...';
             btn.disabled = true;
         
-            const htmlRaw = gerarHTMLOrcamento(tipo);
-            const htmlContent = `<div style="position: absolute; top: 0; left: 0; width: 800px; height: 1122px; background-color: #050505;">${htmlRaw}</div>`;
-        
-            const opt = {
-                margin: 0,
-                filename: tipo + '_' + clienteNome.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf',
-                image: { type: 'jpeg', quality: 1 },
-                html2canvas: { 
-                    scale: 2, 
-                    useCORS: true, 
-                    logging: false,
-                    backgroundColor: '#050505',
-                    scrollY: 0,
-                    windowY: 0
-                },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-        
             try {
-                await html2pdf().set(opt).from(htmlContent).save();
+                const response = await fetch('http://localhost:5000/gerar_pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        cliente: clienteNome,
+                        contato: clienteContato,
+                        escopo: escopo,
+                        total: totalFormatado,
+                        tipo: tipo
+                    })
+                });
+        
+                if (!response.ok) throw new Error('Falha na API de PDF do Python');
+        
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = tipo + '_' + clienteNome.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
             } catch (error) {
                 console.error(error);
-                alert('Erro ao processar PDF direto no navegador.');
+                alert('Erro ao conectar com a API Python. Verifique se o Flask está rodando na porta 5000.');
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
