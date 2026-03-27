@@ -2084,7 +2084,13 @@
             btn.innerText = "GERANDO PDF LOCALMENTE...";
             btn.disabled = true;
 
-            const htmlContent = gerarHTMLOrcamento(tipo);
+            const elementoHtml = document.createElement('div');
+            elementoHtml.style.position = 'absolute';
+            elementoHtml.style.top = '0';
+            elementoHtml.style.left = '0';
+            elementoHtml.style.zIndex = '-9999';
+            elementoHtml.innerHTML = gerarHTMLOrcamento(tipo);
+            document.body.appendChild(elementoHtml);
 
             const opt = {
                 margin: 0,
@@ -2094,17 +2100,20 @@
                     scale: 2, 
                     useCORS: true, 
                     logging: false,
-                    backgroundColor: '#050505'
+                    backgroundColor: '#050505',
+                    scrollY: 0,
+                    windowY: 0
                 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
             try {
-                await html2pdf().set(opt).from(htmlContent).save();
+                await html2pdf().set(opt).from(elementoHtml).save();
             } catch (error) {
                 console.error(error);
                 alert('Erro ao processar PDF direto no navegador.');
             } finally {
+                document.body.removeChild(elementoHtml);
                 btn.innerText = originalText;
                 btn.disabled = false;
             }
