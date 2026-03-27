@@ -2066,8 +2066,7 @@
             }
         }
 
-        function baixarPDF(tipo) {
-            async function baixarPDF(tipo) {
+        async function baixarPDF(tipo) {
             const select = document.getElementById('orcCliente');
             let clienteNome = '';
             let clienteContato = '';
@@ -2078,7 +2077,7 @@
             } else if (select.value) {
                 const c = clientes.find(x => x.id == select.value);
                 if (c) {
-                    clienteNome = c.nome && c.nome !== '-' ? c.nome : (c.empresa || 'Cliente');
+                    clienteNome = c.nome && c.nome !== '' ? c.nome : (c.empresa || 'Cliente');
                     clienteContato = c.telefone || c.email || '';
                 }
             }
@@ -2100,7 +2099,6 @@
             btn.disabled = true;
 
             try {
-                // ALTERAÇÃO: Substitui o URL pelo teu endpoint real do Python
                 const response = await fetch('https://tua-api.leanttro.com/api/orcamento/pdf', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2126,7 +2124,6 @@
                 btn.disabled = false;
             }
         }
-
         function carregarHistoricoOrcamentos() {
             const listaDiv = document.getElementById('lista-orcamentos');
             listaDiv.innerHTML = orcamentos_db.length === 0 ? '<p class="empty-state">Nenhum orçamento salvo no banco.</p>' : '';
