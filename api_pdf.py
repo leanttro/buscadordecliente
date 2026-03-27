@@ -62,7 +62,7 @@ def gerar_pdf():
 
         pdf.set_text_color(*color_text_header)
         pdf.set_font("Arial", 'B', 18)
-        pdf.cell(0, 12, "PROPOSTA COMERCIAL PROFISSIONAL", ln=True, align='C')
+        pdf.cell(0, 12, "PROPOSTA COMERCIAL", ln=True, align='C')
         pdf.ln(8) 
 
         pdf.set_left_margin(15)
