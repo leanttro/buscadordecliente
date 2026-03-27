@@ -10,123 +10,123 @@ CORS(app)
 
 LOGO_PATH = "static/logo.png"
 
+def limpar_texto(texto):
+    if not texto:
+        return "Não informado"
+    subs = {
+        '•': '-', '–': '-', '—': '-', '“': '"', '”': '"', 
+        "‘": "'", "’": "'", 'º': 'o', 'ª': 'a'
+    }
+    for k, v in subs.items():
+        texto = texto.replace(k, v)
+    return texto.encode('latin-1', 'ignore').decode('latin-1')
+
 @app.route('/gerar_pdf', methods=['POST'])
 def gerar_pdf():
     try:
         dados = request.json
         
-        # Definição de Cores
+        cliente_nome = limpar_texto(dados.get('cliente', ''))
+        cliente_contato = limpar_texto(dados.get('contato', ''))
+        escopo = limpar_texto(dados.get('escopo', ''))
+        total = limpar_texto(dados.get('total', 'R$ 0,00'))
+        
         color_bg_main = (10, 10, 15)       
-        color_top_bar = (56, 52, 52)         # #383434 na faixa do topo
-        color_accent_purple = (124, 58, 237) # Roxo original da marca mantido
+        color_top_bar = (56, 52, 52)         
+        color_accent_purple = (124, 58, 237) 
         color_text_header = (255, 255, 255)
         color_cyan_brand = (0, 229, 255)   
-        color_text_base = (220, 220, 220) 
-        color_border = (60, 60, 70)       
+        color_text_base = (200, 200, 200) 
+        color_border = (40, 40, 50)       
 
         pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.set_auto_page_break(auto=True, margin=20)
         pdf.add_page()
         
-        # Fundo geral
         pdf.set_fill_color(*color_bg_main)
         pdf.rect(0, 0, 210, 297, 'F')
         
-        # Faixa Superior com a cor #383434
         pdf.set_fill_color(*color_top_bar)
-        pdf.rect(0, 0, 210, 45, 'F') 
+        pdf.rect(0, 0, 210, 40, 'F') 
         
-        # Logo
+        pdf.set_draw_color(*color_accent_purple)
+        pdf.set_line_width(0.5)
+        pdf.line(0, 40, 210, 40)
+        
         if os.path.exists(LOGO_PATH):
-            pdf.image(LOGO_PATH, x=75, y=10, w=60)
-            pdf.ln(25) 
-        else:
-            print(f"Aviso: Logo não encontrado em {LOGO_PATH}")
-            pdf.ln(15) 
+            pdf.image(LOGO_PATH, x=75, y=8, w=60)
+        pdf.ln(35) 
 
-        # Título
         pdf.set_text_color(*color_text_header)
-        pdf.set_font("Arial", 'B', 18)
-        pdf.cell(0, 12, "PROPOSTA COMERCIAL PROFISSIONAL", ln=True, align='C')
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, "PROPOSTA COMERCIAL", ln=True, align='C')
         pdf.ln(8) 
 
-        pdf.set_left_margin(15)
-        pdf.set_right_margin(15)
+        margem = 20
+        pdf.set_left_margin(margem)
+        pdf.set_right_margin(margem)
         
-        # Data
         pdf.set_text_color(*color_text_base)
-        pdf.set_font("Arial", '', 10)
-        pdf.cell(0, 5, f"Data: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='R')
-        pdf.ln(5)
+        pdf.set_font("Arial", '', 9)
+        data_atual = datetime.now().strftime('%d/%m/%Y')
+        pdf.cell(0, 5, f"Data de Emissão: {data_atual}", ln=True, align='R')
+        pdf.ln(8)
 
-        # Dados do Cliente
         pdf.set_fill_color(*color_bg_main)
         pdf.set_text_color(*color_cyan_brand)
-        pdf.set_font("Arial", 'B', 13)
-        pdf.cell(0, 10, "  DADOS DO CLIENTE", ln=True)
-        
-        pdf.set_draw_color(*color_cyan_brand)
-        pdf.set_line_width(0.3)
-        pdf.line(15, pdf.get_y(), 195, pdf.get_y()) 
-        
-        pdf.set_text_color(*color_text_base)
-        pdf.set_font("Arial", '', 11)
-        pdf.ln(5)
-        
-        current_y = pdf.get_y()
-        pdf.set_fill_color(20, 20, 25) 
-        pdf.rect(15, current_y, 180, 22, 'F')
-        
-        pdf.set_y(current_y + 3)
-        pdf.cell(0, 8, f"    Cliente: {dados.get('cliente', 'Não Informado')}", ln=True)
-        pdf.cell(0, 8, f"    Contato: {dados.get('contato', 'Não Informado')}", ln=True)
-        pdf.ln(12)
-
-        # Detalhamento do Projeto
-        pdf.set_text_color(*color_cyan_brand)
-        pdf.set_font("Arial", 'B', 13)
-        pdf.cell(0, 10, "  DETALHAMENTO DO PROJETO", ln=True)
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 8, "DADOS DO CLIENTE", ln=True)
         
         pdf.set_draw_color(*color_border)
-        pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+        pdf.set_line_width(0.3)
+        pdf.line(margem, pdf.get_y(), 210-margem, pdf.get_y()) 
+        pdf.ln(4)
         
-        pdf.set_text_color(255, 255, 255) 
-        pdf.set_font("Arial", '', 11)
-        pdf.ln(5)
-        
-        # Criação do Quadro de Escopo Maior e Automático
-        escopo_texto = dados.get('escopo', 'Nenhum detalhamento fornecido.')
-        
-        pdf.set_fill_color(20, 20, 25)
-        pdf.set_x(15) 
-        
-        # Adiciona um "respiro" nas bordas para ficar como um quadro bonito
-        escopo_formatado = f"\n  {escopo_texto.replace(chr(10), chr(10) + '  ')}\n"
-        
-        # fill=True garante que o fundo seja pintado independentemente de quantas linhas o texto ocupar
-        pdf.multi_cell(180, 7, escopo_formatado, align='L', fill=True)
-        pdf.ln(15)
+        pdf.set_text_color(*color_text_base)
+        pdf.set_font("Arial", '', 10)
+        pdf.cell(0, 6, f"Empresa / Responsável: {cliente_nome}", ln=True)
+        pdf.cell(0, 6, f"Contato: {cliente_contato}", ln=True)
+        pdf.ln(10)
 
-        # Investimento Total (Centralizado e Mantendo o Roxo Original na Borda)
-        pdf.set_left_margin(0) 
-        
-        pdf.set_fill_color(*color_bg_main)
-        total_y = pdf.get_y()
-        pdf.set_draw_color(*color_accent_purple)
-        pdf.set_line_width(0.8)
-        # Quadro de valor centralizado
-        pdf.rect(60, total_y, 90, 25, 'D')
-        
-        pdf.set_y(total_y + 5)
         pdf.set_text_color(*color_cyan_brand)
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 7, "INVESTIMENTO TOTAL", ln=True, align='C')
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 8, "DETALHAMENTO DO PROJETO", ln=True)
+        pdf.line(margem, pdf.get_y(), 210-margem, pdf.get_y())
+        pdf.ln(6)
         
         pdf.set_text_color(*color_text_header)
-        pdf.set_font("Arial", 'B', 22)
-        pdf.cell(0, 12, dados.get('total', 'R$ 0,00'), ln=True, align='C')
+        pdf.set_font("Arial", '', 10)
         
-        # Geração do arquivo em memória
+        linhas = escopo.split('\n')
+        for linha in linhas:
+            if linha.strip():
+                pdf.multi_cell(0, 6, linha.strip(), align='L')
+            else:
+                pdf.ln(3) 
+        
+        pdf.ln(15)
+
+        pdf.set_left_margin(0)
+        pdf.set_right_margin(0)
+        
+        y_box = pdf.get_y()
+        largura_box = 100
+        x_box = (210 - largura_box) / 2
+        
+        pdf.set_fill_color(18, 18, 24) 
+        pdf.set_draw_color(*color_accent_purple)
+        pdf.set_line_width(0.5)
+        pdf.rect(x_box, y_box, largura_box, 28, 'DF')
+        
+        pdf.set_y(y_box + 5)
+        pdf.set_text_color(*color_cyan_brand)
+        pdf.set_font("Arial", 'B', 10)
+        pdf.cell(0, 6, "INVESTIMENTO TOTAL", ln=True, align='C')
+        
+        pdf.set_text_color(*color_text_header)
+        pdf.set_font("Arial", 'B', 18)
+        pdf.cell(0, 10, total, ln=True, align='C')
+        
         pdf_output = pdf.output(dest='S')
         
         if isinstance(pdf_output, str):
@@ -138,7 +138,7 @@ def gerar_pdf():
             io.BytesIO(pdf_bytes),
             mimetype='application/pdf',
             as_attachment=True,
-            download_name=f"Proposta_{dados.get('cliente', 'Cliente').replace(' ', '_')}.pdf"
+            download_name=f"Proposta_{cliente_nome.replace(' ', '_')}.pdf"
         )
     except Exception as e:
         print(f"Erro crítico no PDF: {e}")
